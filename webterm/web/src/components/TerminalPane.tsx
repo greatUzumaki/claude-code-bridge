@@ -54,7 +54,7 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
       {/* On-screen key bar */}
       {showKeys && (
         <div
-          className="shrink-0 flex items-stretch gap-1 px-1 overflow-x-auto"
+          className="shrink-0 flex items-stretch gap-1 px-1 w-full"
           style={{
             minHeight: "44px",
             borderTop: "1px solid var(--border)",
@@ -68,11 +68,10 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
                 key={k.aria}
                 onClick={() => send(k.data)}
                 aria-label={k.aria}
-                className="flex items-center justify-center shrink-0 rounded transition-colors hover:bg-white/5 active:bg-white/10"
+                className="flex-1 flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10"
                 style={{
-                  minWidth: "44px",
+                  minWidth: 0,
                   height: "44px",
-                  padding: "0 12px",
                   color: "var(--text)",
                   fontSize: "13px",
                 }}
