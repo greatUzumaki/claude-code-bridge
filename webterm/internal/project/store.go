@@ -76,11 +76,17 @@ func (s *Store) load() Layout {
 }
 
 func (s *Store) save(l Layout) error {
-	if err := os.MkdirAll(filepath.Join(s.root, ".webterm"), 0o755); err != nil {
+	dir := filepath.Join(s.root, ".webterm")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	b, _ := json.MarshalIndent(l, "", "  ")
-	return os.WriteFile(s.layoutPath(), b, 0o644)
+	// Write-then-rename so a concurrent reader never sees a half-written file.
+	tmp := filepath.Join(dir, "layout.json.tmp")
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, s.layoutPath())
 }
 
 // List discovers folders under root and reconciles them with saved layout:
@@ -204,6 +210,8 @@ func (s *Store) CreateProject(name, groupID string, gitInit bool) (Project, erro
 
 // ProjectPath returns the absolute path for a project id (for terminal cwd).
 func (s *Store) ProjectPath(id string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	lay := s.load()
 	for _, p := range lay.Projects {
 		if p.ID == id {
