@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"webterm/internal/fsapi"
 	"webterm/internal/pathjail"
 )
 
@@ -27,7 +28,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	// fs, project, terminal, static routes added in later tasks.
+	fsapi.New(s.jail).Register(s.mux)
+	// project, terminal, static routes added in later tasks.
 }
 
 // Handler returns the fully-wrapped handler (auth seam outermost).
