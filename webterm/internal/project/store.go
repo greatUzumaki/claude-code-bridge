@@ -129,6 +129,13 @@ func (s *Store) List() (Layout, error) {
 			})
 		}
 	}
+	// Emit empty arrays (not JSON null) so the frontend can always iterate.
+	if lay.Groups == nil {
+		lay.Groups = []Group{}
+	}
+	if lay.Projects == nil {
+		lay.Projects = []Project{}
+	}
 	_ = s.save(lay)
 	return lay, nil
 }

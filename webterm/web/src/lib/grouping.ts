@@ -8,11 +8,14 @@ export type Tree = {
 };
 
 export function buildTree(layout: Layout): Tree {
+  // The API serializes empty slices as JSON null (Go nil slice), so coalesce.
+  const allGroups = layout.groups ?? [];
+  const allProjects = layout.projects ?? [];
   const byOrder = (a: { order: number }, b: { order: number }) => a.order - b.order;
-  const ungrouped = layout.projects.filter((p) => !p.groupId).sort(byOrder);
-  const groups = [...layout.groups].sort(byOrder).map((g) => ({
+  const ungrouped = allProjects.filter((p) => !p.groupId).sort(byOrder);
+  const groups = [...allGroups].sort(byOrder).map((g) => ({
     ...g,
-    projects: layout.projects.filter((p) => p.groupId === g.id).sort(byOrder),
+    projects: allProjects.filter((p) => p.groupId === g.id).sort(byOrder),
   }));
   return { ungrouped, groups };
 }
