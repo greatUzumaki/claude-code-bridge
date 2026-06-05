@@ -2,7 +2,7 @@
 #
 # Dev-machine bootstrap for working with code from a terminal.
 # Installs: git, build tools, tmux, Python 3 (+pip/venv), Node.js LTS (+npm),
-#           ripgrep, jq, and the Claude Code CLI.
+#           ripgrep, jq, and Claude Code (native installer — standalone, no Node).
 # Supports: Debian/Ubuntu (apt), Fedora/RHEL (dnf), macOS (Homebrew).
 # Idempotent — safe to re-run. Run as root, or as a user with sudo.
 #
@@ -80,20 +80,15 @@ case "$PM" in
   *)    warn "Unsupported platform — install git, node ${NODE_MAJOR}+, python3, tmux manually"; ;;
 esac
 
-# Claude Code CLI (requires node/npm). Global install needs root on Linux.
-if have npm; then
-  if have claude; then
-    log "Claude Code already installed: $(claude --version 2>/dev/null || echo present)"
-  else
-    log "Installing Claude Code CLI"
-    if [ "$PM" = "brew" ]; then
-      npm install -g @anthropic-ai/claude-code
-    else
-      $SUDO npm install -g @anthropic-ai/claude-code
-    fi
-  fi
+# Claude Code — native installer: a standalone binary in ~/.local/bin, no Node,
+# self-updating. This is the recommended method. Runs as the CURRENT user
+# (never sudo — it installs into the user's home).
+export PATH="$HOME/.local/bin:$PATH"
+if have claude; then
+  log "Claude Code already installed: $(claude --version 2>/dev/null || echo present)"
 else
-  warn "npm not found — skipped Claude Code (install Node first)"
+  log "Installing Claude Code (native installer)"
+  curl -fsSL https://claude.ai/install.sh | bash
 fi
 
 echo
@@ -105,6 +100,8 @@ done
 
 echo
 log "Done."
+echo "  • If 'claude' isn't found in a new shell, add ~/.local/bin to PATH:"
+echo "      echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
 echo "  • Run 'claude' to log in. Use a Pro/Max plan for the cheap interactive bucket"
-echo "    (interactive CLI usage — not 'claude -p'/SDK, which draws the Agent-SDK credit pool)."
+echo "    (interactive CLI — not 'claude -p'/SDK, which draws the Agent-SDK credit pool)."
 echo "  • tmux is installed — required by WebTerm's terminal."
