@@ -1,0 +1,13 @@
+[Unit]
+Description=WebTerm
+After=network.target
+
+[Service]
+# Bind localhost; a TLS reverse proxy (see Caddyfile.example) terminates the domain.
+# Set a real token and your domain before exposing. Run as a dedicated non-root user.
+ExecStart=/opt/webterm/webterm --root /opt/projects --addr 127.0.0.1:7070 --token CHANGEME --allowed-origins https://term.example.com
+User=webterm
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+# Caddy auto-provisions TLS for the domain and proxies to WebTerm on localhost.
+# WebSockets are proxied transparently. Pair with --allowed-origins https://term.example.com.
+term.example.com {
+    reverse_proxy 127.0.0.1:7070
+}
