@@ -94,7 +94,7 @@ export default function App() {
 
         {/* File tree: full-screen overlay on phone, full-HEIGHT column on sm+ */}
         {filesFor && !openFile && (
-          <div className="fixed inset-0 z-10 sm:static sm:inset-auto sm:z-auto sm:h-full sm:w-64 sm:shrink-0">
+          <div className="fixed inset-0 z-20 sm:static sm:inset-auto sm:z-auto sm:h-full sm:w-64 sm:shrink-0">
             <FileTree root={filesFor.path} onOpen={handleOpenFile} onClose={handleCloseFiles} />
           </div>
         )}

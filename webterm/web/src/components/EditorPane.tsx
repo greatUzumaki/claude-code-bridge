@@ -17,15 +17,18 @@ function ext(path: string) {
 export function EditorPane({ path, onClose }: { path: string; onClose: () => void }) {
   const [value, setValue] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [tooLarge, setTooLarge] = useState(false);
 
   useEffect(() => {
     api.readFile(path).then((r) => {
+      setTooLarge(!!r.tooLarge);
       setValue(r.tooLarge ? "// file too large to display" : (r.content ?? ""));
       setDirty(false);
     });
   }, [path]);
 
   const save = async () => {
+    if (tooLarge) return; // never write the placeholder back over a large file
     await api.writeFile(path, value);
     setDirty(false);
   };
@@ -55,8 +58,13 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
         <button
           onClick={save}
           aria-label="Save file"
-          className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10"
-          style={{ width: "44px", height: "44px", color: dirty ? "var(--accent)" : "var(--muted)" }}
+          disabled={tooLarge}
+          className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 disabled:opacity-40 disabled:pointer-events-none"
+          style={{
+            width: "44px",
+            height: "44px",
+            color: dirty && !tooLarge ? "var(--accent)" : "var(--muted)",
+          }}
         >
           <Save size={18} />
         </button>
@@ -76,7 +84,9 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
           value={value}
           theme="dark"
           extensions={ext(path)}
+          readOnly={tooLarge}
           onChange={(v) => {
+            if (tooLarge) return;
             setValue(v);
             setDirty(true);
           }}

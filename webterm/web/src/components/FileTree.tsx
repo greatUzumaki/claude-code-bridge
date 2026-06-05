@@ -14,6 +14,12 @@ export function FileTree({
   const [currentPath, setCurrentPath] = useState(root);
   const [entries, setEntries] = useState<FsEntry[]>([]);
 
+  // Reset to the project root when switching projects (root prop changes),
+  // otherwise the tree would keep listing the previous project's directory.
+  useEffect(() => {
+    setCurrentPath(root);
+  }, [root]);
+
   useEffect(() => {
     api.listDir(currentPath).then((r) => setEntries(r.entries));
   }, [currentPath]);
@@ -32,7 +38,7 @@ export function FileTree({
     setCurrentPath(parent.length < root.length ? root : parent);
   };
 
-  const displayPath = currentPath.replace(root, "") || "/";
+  const displayPath = (currentPath.startsWith(root) ? currentPath.slice(root.length) : currentPath) || "/";
 
   return (
     <div

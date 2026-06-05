@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -35,7 +36,12 @@ func (h *WSHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer c.Close(websocket.StatusInternalError, "bye")
-	ctx := r.Context()
+	// Own the connection lifetime: r.Context() may be cancelled once the HTTP
+	// connection is hijacked by Accept, which would prematurely fail writes and
+	// silently stop the terminal from painting. Use a dedicated context, and
+	// cancel it from whichever direction ends first so both tear down together.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	q := r.URL.Query()
 	dir, ok := h.resolve(q.Get("project"))
@@ -75,6 +81,7 @@ func (h *WSHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	// tmux (via PTY) → client
 	go func() {
+		defer cancel() // when output ends, unblock the read loop below too
 		buf := make([]byte, 32*1024)
 		for {
 			nr, er := ptmx.Read(buf)

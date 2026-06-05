@@ -5,20 +5,22 @@ async function j<T>(r: Response): Promise<T> {
   return r.json();
 }
 
+// Request init for JSON-body mutations — sets Content-Type so the request is
+// unambiguous to the server and any future middleware.
+const jsonInit = (method: string, body: unknown): RequestInit => ({
+  method,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
 export const api = {
   listProjects: () => fetch("/api/projects/list").then(j<Layout>),
   createProject: (name: string, groupId = "", gitInit = false) =>
-    fetch("/api/projects/create", {
-      method: "POST",
-      body: JSON.stringify({ name, groupId, gitInit }),
-    }).then(j),
+    fetch("/api/projects/create", jsonInit("POST", { name, groupId, gitInit })).then(j),
   moveProject: (projectId: string, groupId: string, order: number) =>
-    fetch("/api/projects/move", {
-      method: "POST",
-      body: JSON.stringify({ projectId, groupId, order }),
-    }).then(j),
+    fetch("/api/projects/move", jsonInit("POST", { projectId, groupId, order })).then(j),
   createGroup: (name: string) =>
-    fetch("/api/groups/create", { method: "POST", body: JSON.stringify({ name }) }).then(j),
+    fetch("/api/groups/create", jsonInit("POST", { name })).then(j),
   deleteGroup: (groupId: string) =>
     fetch(`/api/groups/delete?groupId=${encodeURIComponent(groupId)}`, { method: "DELETE" }).then(
       j,
@@ -31,7 +33,7 @@ export const api = {
       j<{ content?: string; tooLarge?: boolean }>,
     ),
   writeFile: (path: string, content: string) =>
-    fetch("/api/fs/write", { method: "PUT", body: JSON.stringify({ path, content }) }).then(j),
+    fetch("/api/fs/write", jsonInit("PUT", { path, content })).then(j),
 };
 
 export type FsEntry = { name: string; dir: boolean; size: number; mtime: number };
