@@ -7,11 +7,7 @@ import "@xterm/xterm/css/xterm.css";
 // tmux handles session persistence and repaint on reconnect — no session id
 // tracking needed; reconnecting with the same project (and optional n) param
 // re-attaches the same tmux session automatically.
-export function useTerminal(
-  projectId: string,
-  n: number | undefined,
-  el: HTMLDivElement | null
-) {
+export function useTerminal(projectId: string, n: number | undefined, el: HTMLDivElement | null) {
   useEffect(() => {
     if (!el) return;
     const term = new Terminal({
@@ -32,7 +28,7 @@ export function useTerminal(
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const nParam = n != null && n > 0 ? `&n=${n}` : "";
       ws = new WebSocket(
-        `${proto}://${location.host}/ws/term?project=${encodeURIComponent(projectId)}&cols=${term.cols}&rows=${term.rows}${nParam}`
+        `${proto}://${location.host}/ws/term?project=${encodeURIComponent(projectId)}&cols=${term.cols}&rows=${term.rows}${nParam}`,
       );
       ws.binaryType = "arraybuffer";
       ws.onmessage = (ev) => {
@@ -49,7 +45,7 @@ export function useTerminal(
     connect();
 
     const onDataDisposable = term.onData(
-      (d) => ws?.readyState === 1 && ws.send(new TextEncoder().encode(d))
+      (d) => ws?.readyState === 1 && ws.send(new TextEncoder().encode(d)),
     );
     const sendResize = () => {
       fit.fit();

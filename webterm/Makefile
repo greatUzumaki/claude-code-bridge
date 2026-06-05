@@ -3,7 +3,7 @@ BIN   := webterm
 ROOT  ?= $(HOME)/projects
 ADDR  ?= 127.0.0.1:7070
 
-.PHONY: all build web go run dev test vet fmt clean help
+.PHONY: all build web go run dev test vet lint fmt clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-8s %s\n", $$1, $$2}'
@@ -33,8 +33,12 @@ vet: ## go vet + frontend typecheck/build
 	go vet ./internal/... ./cmd/...
 	cd web && npm run build
 
-fmt: ## gofmt the Go sources
+lint: ## Lint the frontend with oxlint (oxc)
+	cd web && npm run lint
+
+fmt: ## Format Go (gofmt) + frontend (oxfmt)
 	gofmt -w ./internal ./cmd
+	cd web && npm run format
 
 clean: ## Remove the built binary
 	rm -f $(BIN)
