@@ -5,12 +5,34 @@ package project
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 )
+
+// validName rejects project names that could escape root or inject into argv:
+// empty, ".", "..", anything with a path separator, and leading "." or "-".
+func validName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	if strings.ContainsAny(name, `/\`) {
+		return false
+	}
+	if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "-") {
+		return false
+	}
+	return true
+}
+
+// withinRoot reports whether abs is s.root or a descendant of it.
+func (s *Store) withinRoot(abs string) bool {
+	return abs == s.root || strings.HasPrefix(abs, s.root+string(os.PathSeparator))
+}
 
 type Group struct {
 	ID        string `json:"id"`
@@ -161,7 +183,13 @@ func (s *Store) MoveProject(id, groupID string, order int) error {
 func (s *Store) CreateProject(name, groupID string, gitInit bool) (Project, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !validName(name) {
+		return Project{}, errors.New("invalid project name")
+	}
 	dir := filepath.Join(s.root, name)
+	if abs, err := filepath.Abs(dir); err != nil || !s.withinRoot(abs) {
+		return Project{}, errors.New("invalid project path")
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Project{}, err
 	}
@@ -179,7 +207,12 @@ func (s *Store) ProjectPath(id string) (string, bool) {
 	lay := s.load()
 	for _, p := range lay.Projects {
 		if p.ID == id {
-			return filepath.Join(s.root, p.Path), true
+			abs := filepath.Join(s.root, p.Path)
+			cleaned, err := filepath.Abs(abs)
+			if err != nil || !s.withinRoot(cleaned) {
+				return "", false
+			}
+			return cleaned, true
 		}
 	}
 	return "", false

@@ -70,3 +70,17 @@ func TestCreateProjectMakesFolder(t *testing.T) {
 		t.Fatal("project folder not created")
 	}
 }
+
+func TestCreateProjectRejectsBadNames(t *testing.T) {
+	root := t.TempDir()
+	s := NewStore(root)
+	for _, bad := range []string{"", ".", "..", "../escape", "a/b", `a\b`, ".hidden", "-rf"} {
+		if _, err := s.CreateProject(bad, "", false); err == nil {
+			t.Fatalf("expected rejection for name %q", bad)
+		}
+	}
+	// nothing should have been created outside (or as a dotfile inside) root
+	if _, err := os.Stat(filepath.Join(filepath.Dir(root), "escape")); err == nil {
+		t.Fatal("traversal created a directory outside root")
+	}
+}
