@@ -1,0 +1,90 @@
+name: claude-bridge-dev
+
+# Local dev infrastructure: Postgres + Redis + MinIO (S3) + Jaeger (tracing).
+# Ports bind to 127.0.0.1 only (not exposed to the network). Override via .env.
+#   cp .env.example .env   # then edit secrets
+#   docker compose up -d
+#   docker compose ps      # check health
+#   docker compose down    # stop  (add -v to also wipe data volumes)
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks: [backend]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # AOF persistence + password auth.
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-app}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-app}
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [backend]
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000" # S3 API
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001" # Web console
+    volumes:
+      - minio_data:/data
+    # curl was removed from the image; the bundled `mc` provides readiness.
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks: [backend]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true" # accept OTLP on 4317/4318
+      SPAN_STORAGE_TYPE: memory # dev: in-memory traces (lost on restart)
+    ports:
+      - "127.0.0.1:${JAEGER_UI_PORT:-16686}:16686" # Web UI
+      - "127.0.0.1:${JAEGER_OTLP_GRPC_PORT:-4317}:4317" # OTLP gRPC
+      - "127.0.0.1:${JAEGER_OTLP_HTTP_PORT:-4318}:4318" # OTLP HTTP
+    networks: [backend]
+    # distroless image (no shell/curl) → no in-container healthcheck;
+    # check readiness via the UI on :16686.
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:
+
+networks:
+  backend:
+    driver: bridge
