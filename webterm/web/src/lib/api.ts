@@ -19,8 +19,7 @@ export const api = {
     fetch("/api/projects/create", jsonInit("POST", { name, groupId, gitInit })).then(j),
   moveProject: (projectId: string, groupId: string, order: number) =>
     fetch("/api/projects/move", jsonInit("POST", { projectId, groupId, order })).then(j),
-  createGroup: (name: string) =>
-    fetch("/api/groups/create", jsonInit("POST", { name })).then(j),
+  createGroup: (name: string) => fetch("/api/groups/create", jsonInit("POST", { name })).then(j),
   deleteGroup: (groupId: string) =>
     fetch(`/api/groups/delete?groupId=${encodeURIComponent(groupId)}`, { method: "DELETE" }).then(
       j,

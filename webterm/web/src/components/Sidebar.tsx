@@ -61,23 +61,18 @@ export function Sidebar({
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === "Enter" && onSelect(p)}
-        className="flex items-center gap-2 px-3 cursor-pointer select-none rounded-sm transition-colors hover:bg-white/5 active:bg-white/10"
-        style={{
-          minHeight: "44px",
-          color: isActive ? "var(--accent)" : "var(--text)",
-        }}
+        className={[
+          "flex items-center gap-2 px-3 cursor-pointer select-none rounded-sm transition-colors hover:bg-white/5 active:bg-white/10 min-h-11",
+          isActive ? "text-accent" : "text-text",
+        ].join(" ")}
       >
-        <SquareTerminal size={16} className="shrink-0" style={{ color: "var(--muted)" }} />
+        <SquareTerminal size={16} className="shrink-0 text-muted" />
 
         {isActive && (
           <span
-            className="shrink-0 rounded-full"
+            className="shrink-0 rounded-full bg-accent"
             aria-label="active session"
-            style={{
-              width: "6px",
-              height: "6px",
-              background: "var(--accent)",
-            }}
+            style={{ width: "6px", height: "6px" }}
           />
         )}
 
@@ -90,12 +85,7 @@ export function Sidebar({
               onViewFiles(p);
             }}
             aria-label="View project files"
-            className="flex items-center justify-center shrink-0 rounded transition-colors hover:bg-white/10 active:bg-white/15"
-            style={{
-              width: "36px",
-              height: "36px",
-              color: "var(--muted)",
-            }}
+            className="flex items-center justify-center shrink-0 rounded transition-colors hover:bg-white/10 active:bg-white/15 w-9 h-9 text-muted"
           >
             <FolderOpen size={16} />
           </button>
@@ -105,42 +95,22 @@ export function Sidebar({
   };
 
   return (
-    <div
-      className="h-full flex flex-col"
-      style={{
-        background: "var(--panel)",
-        borderRight: "1px solid var(--border)",
-        width: "100%",
-      }}
-    >
+    <div className="h-full flex flex-col bg-panel border-r border-border w-full">
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-3 shrink-0"
-        style={{
-          minHeight: "44px",
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <span
-          className="text-xs font-semibold tracking-widest uppercase"
-          style={{ color: "var(--muted)" }}
-        >
-          Projects
-        </span>
+      <div className="flex items-center justify-between px-3 shrink-0 min-h-11 border-b border-border">
+        <span className="text-xs font-semibold tracking-widest uppercase text-muted">Projects</span>
         <span className="flex items-center gap-1">
           <button
             onClick={newProject}
             aria-label="New project"
-            className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10"
-            style={{ width: "36px", height: "36px", color: "var(--muted)" }}
+            className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-9 h-9 text-muted"
           >
             <Plus size={18} />
           </button>
           <button
             onClick={newGroup}
             aria-label="New group"
-            className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10"
-            style={{ width: "36px", height: "36px", color: "var(--muted)" }}
+            className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-9 h-9 text-muted"
           >
             <FolderPlus size={18} />
           </button>
@@ -148,8 +118,7 @@ export function Sidebar({
             <button
               onClick={onClose}
               aria-label="Close navigation"
-              className="sm:hidden flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10"
-              style={{ width: "36px", height: "36px", color: "var(--muted)" }}
+              className="sm:hidden flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-9 h-9 text-muted"
             >
               <X size={18} />
             </button>
@@ -167,11 +136,7 @@ export function Sidebar({
             <div key={g.id}>
               <button
                 onClick={() => toggleGroup(g.id)}
-                className="w-full flex items-center gap-2 px-3 text-left rounded-sm transition-colors hover:bg-white/5 active:bg-white/10"
-                style={{
-                  minHeight: "36px",
-                  color: "var(--muted)",
-                }}
+                className="w-full flex items-center gap-2 px-3 text-left rounded-sm transition-colors hover:bg-white/5 active:bg-white/10 min-h-9 text-muted"
               >
                 {isCollapsed ? (
                   <ChevronRight size={14} className="shrink-0" />

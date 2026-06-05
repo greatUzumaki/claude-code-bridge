@@ -30,7 +30,7 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
   const [showKeys, setShowKeys] = useState(false);
 
   return (
-    <div className="h-full w-full flex flex-col relative" style={{ background: "var(--bg)" }}>
+    <div className="h-full w-full flex flex-col relative bg-bg">
       <div ref={ref} className="flex-1 min-h-0 w-full" />
 
       {/* Toggle for the on-screen key bar (handy on phones) */}
@@ -38,29 +38,19 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
         onClick={() => setShowKeys((v) => !v)}
         aria-label={showKeys ? "Hide on-screen keys" : "Show on-screen keys"}
         aria-pressed={showKeys}
-        className="absolute right-2 z-10 flex items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
-        style={{
-          bottom: showKeys ? "52px" : "8px",
-          width: "40px",
-          height: "40px",
-          background: "var(--panel)",
-          border: "1px solid var(--border)",
-          color: showKeys ? "var(--accent)" : "var(--muted)",
-        }}
+        className={[
+          "absolute right-2 z-10 flex items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20",
+          "w-10 h-10 bg-panel border border-border",
+          showKeys ? "text-accent" : "text-muted",
+        ].join(" ")}
+        style={{ bottom: showKeys ? "52px" : "8px" }}
       >
         <Keyboard size={18} />
       </button>
 
       {/* On-screen key bar */}
       {showKeys && (
-        <div
-          className="shrink-0 flex items-stretch gap-1 px-1 w-full"
-          style={{
-            minHeight: "44px",
-            borderTop: "1px solid var(--border)",
-            background: "var(--panel)",
-          }}
-        >
+        <div className="shrink-0 flex items-stretch gap-1 px-1 w-full min-h-11 border-t border-border bg-panel">
           {KEYS.map((k) => {
             const Icon = k.icon;
             return (
@@ -68,13 +58,7 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
                 key={k.aria}
                 onClick={() => send(k.data)}
                 aria-label={k.aria}
-                className="flex-1 flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10"
-                style={{
-                  minWidth: 0,
-                  height: "44px",
-                  color: "var(--text)",
-                  fontSize: "13px",
-                }}
+                className="flex-1 flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 min-w-0 h-11 text-text text-[13px]"
               >
                 {Icon ? <Icon size={18} /> : k.label}
               </button>

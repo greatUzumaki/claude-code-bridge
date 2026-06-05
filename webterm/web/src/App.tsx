@@ -36,27 +36,21 @@ export default function App() {
   };
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden" style={{ background: "var(--bg)" }}>
+    <div className="h-dvh flex flex-col overflow-hidden bg-bg">
       {/* Mobile top app bar */}
-      <div
-        className="sm:hidden flex items-center gap-3 px-3 shrink-0"
-        style={{
-          minHeight: "44px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--panel)",
-        }}
-      >
+      <div className="sm:hidden flex items-center gap-3 px-3 shrink-0 min-h-11 border-b border-border bg-panel">
         <button
           onClick={() => setNavOpen(true)}
           aria-label="Open navigation menu"
-          className="flex items-center justify-center rounded active:bg-white/10 hover:bg-white/5"
-          style={{ width: "44px", height: "44px", color: "var(--text)" }}
+          className="flex items-center justify-center rounded active:bg-white/10 hover:bg-white/5 w-11 h-11 text-text"
         >
           <Menu size={20} />
         </button>
         <span
-          className="flex-1 truncate text-sm font-medium"
-          style={{ color: active ? "var(--text)" : "var(--muted)" }}
+          className={[
+            "flex-1 truncate text-sm font-medium",
+            active ? "text-text" : "text-muted",
+          ].join(" ")}
         >
           {active ? active.name : "WebTerm"}
         </span>
@@ -81,8 +75,8 @@ export default function App() {
             "transition-transform duration-200 ease-out",
             "sm:translate-x-0 sm:flex sm:shrink-0",
             navOpen ? "translate-x-0" : "-translate-x-full",
+            "w-72",
           ].join(" ")}
-          style={{ width: "288px" }}
         >
           <Sidebar
             activeId={active?.id ?? ""}
@@ -106,10 +100,7 @@ export default function App() {
           ) : active ? (
             <TerminalPane key={active.id} projectId={active.id} />
           ) : (
-            <div
-              className="h-full flex items-center justify-center text-sm"
-              style={{ color: "var(--muted)" }}
-            >
+            <div className="h-full flex items-center justify-center text-sm text-muted">
               select a project
             </div>
           )}

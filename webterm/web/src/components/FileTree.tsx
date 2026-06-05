@@ -38,42 +38,28 @@ export function FileTree({
     setCurrentPath(parent.length < root.length ? root : parent);
   };
 
-  const displayPath = (currentPath.startsWith(root) ? currentPath.slice(root.length) : currentPath) || "/";
+  const displayPath =
+    (currentPath.startsWith(root) ? currentPath.slice(root.length) : currentPath) || "/";
 
   return (
-    <div
-      className="h-full flex flex-col text-sm"
-      style={{ background: "var(--panel)", borderRight: "1px solid var(--border)" }}
-    >
+    <div className="h-full flex flex-col text-sm bg-panel border-r border-border">
       {/* Header */}
-      <div
-        className="flex items-center gap-2 px-2 shrink-0"
-        style={{
-          minHeight: "44px",
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
+      <div className="flex items-center gap-2 px-2 shrink-0 min-h-11 border-b border-border">
         <button
           onClick={onClose}
           aria-label="Close file tree"
-          className="flex items-center justify-center shrink-0 rounded transition-colors hover:bg-white/5 active:bg-white/10"
-          style={{ width: "36px", height: "36px", color: "var(--muted)" }}
+          className="flex items-center justify-center shrink-0 rounded transition-colors hover:bg-white/5 active:bg-white/10 w-9 h-9 text-muted"
         >
           <ChevronLeft size={18} />
         </button>
-        <span
-          className="flex-1 truncate text-xs"
-          style={{ color: "var(--muted)" }}
-          title={currentPath}
-        >
+        <span className="flex-1 truncate text-xs text-muted" title={currentPath}>
           {displayPath}
         </span>
         {canGoUp && (
           <button
             onClick={goUp}
             aria-label="Go to parent directory"
-            className="shrink-0 text-xs px-2 rounded transition-colors hover:bg-white/5 active:bg-white/10"
-            style={{ minHeight: "30px", color: "var(--muted)" }}
+            className="shrink-0 text-xs px-2 rounded transition-colors hover:bg-white/5 active:bg-white/10 min-h-[30px] text-muted"
           >
             ..
           </button>
@@ -89,16 +75,15 @@ export function FileTree({
             role="button"
             tabIndex={0}
             onKeyDown={(ev) => ev.key === "Enter" && handleEntry(e)}
-            className="flex items-center gap-2 px-2 cursor-pointer truncate rounded-sm transition-colors hover:bg-white/5 active:bg-white/10 select-none"
-            style={{
-              minHeight: "44px",
-              color: e.dir ? "var(--muted)" : "var(--text)",
-            }}
+            className={[
+              "flex items-center gap-2 px-2 cursor-pointer truncate rounded-sm transition-colors hover:bg-white/5 active:bg-white/10 select-none min-h-11",
+              e.dir ? "text-muted" : "text-text",
+            ].join(" ")}
           >
             {e.dir ? (
-              <Folder size={16} className="shrink-0" style={{ color: "var(--accent)" }} />
+              <Folder size={16} className="shrink-0 text-accent" />
             ) : (
-              <File size={16} className="shrink-0" style={{ color: "var(--muted)" }} />
+              <File size={16} className="shrink-0 text-muted" />
             )}
             <span className="truncate text-[14px]">{e.name}</span>
           </div>

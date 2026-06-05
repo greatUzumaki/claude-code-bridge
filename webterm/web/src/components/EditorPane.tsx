@@ -36,20 +36,13 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
   const filename = path.split("/").pop() ?? path;
 
   return (
-    <div className="h-full flex flex-col" style={{ background: "var(--bg)" }}>
+    <div className="h-full flex flex-col bg-bg">
       {/* Toolbar */}
-      <div
-        className="flex items-center gap-2 px-3 shrink-0"
-        style={{
-          minHeight: "44px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--panel)",
-        }}
-      >
-        <span className="flex-1 truncate text-sm" style={{ color: "var(--text)" }} title={path}>
+      <div className="flex items-center gap-2 px-3 shrink-0 min-h-11 border-b border-border bg-panel">
+        <span className="flex-1 truncate text-sm text-text" title={path}>
           {filename}
           {dirty && (
-            <span style={{ color: "var(--accent)" }} aria-label="unsaved changes">
+            <span className="text-accent" aria-label="unsaved changes">
               {" "}
               •
             </span>
@@ -59,20 +52,17 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
           onClick={save}
           aria-label="Save file"
           disabled={tooLarge}
-          className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 disabled:opacity-40 disabled:pointer-events-none"
-          style={{
-            width: "44px",
-            height: "44px",
-            color: dirty && !tooLarge ? "var(--accent)" : "var(--muted)",
-          }}
+          className={[
+            "flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 disabled:opacity-40 disabled:pointer-events-none w-11 h-11",
+            dirty && !tooLarge ? "text-accent" : "text-muted",
+          ].join(" ")}
         >
           <Save size={18} />
         </button>
         <button
           onClick={onClose}
           aria-label="Close editor"
-          className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10"
-          style={{ width: "44px", height: "44px", color: "var(--muted)" }}
+          className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-11 h-11 text-muted"
         >
           <X size={18} />
         </button>
