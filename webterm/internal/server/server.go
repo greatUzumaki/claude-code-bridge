@@ -49,7 +49,7 @@ func (s *Server) routes() {
 		_ = terminal.Kill(r.URL.Query().Get("session"))
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	})
-	// static routes added in later tasks.
+	s.mux.Handle("/", spaHandler())
 }
 
 // Handler returns the fully-wrapped handler (auth seam outermost).
