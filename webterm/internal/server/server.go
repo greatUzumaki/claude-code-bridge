@@ -5,6 +5,7 @@ import (
 
 	"webterm/internal/fsapi"
 	"webterm/internal/pathjail"
+	"webterm/internal/project"
 )
 
 type Config struct {
@@ -13,13 +14,19 @@ type Config struct {
 }
 
 type Server struct {
-	cfg  Config
-	jail *pathjail.Jail
-	mux  *http.ServeMux
+	cfg   Config
+	jail  *pathjail.Jail
+	mux   *http.ServeMux
+	store *project.Store
 }
 
 func New(cfg Config) *Server {
-	s := &Server{cfg: cfg, jail: pathjail.New(cfg.Root), mux: http.NewServeMux()}
+	s := &Server{
+		cfg:   cfg,
+		jail:  pathjail.New(cfg.Root),
+		mux:   http.NewServeMux(),
+		store: project.NewStore(cfg.Root),
+	}
 	s.routes()
 	return s
 }
@@ -29,7 +36,8 @@ func (s *Server) routes() {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	fsapi.New(s.jail).Register(s.mux)
-	// project, terminal, static routes added in later tasks.
+	s.store.Register(s.mux)
+	// terminal, static routes added in later tasks.
 }
 
 // Handler returns the fully-wrapped handler (auth seam outermost).
