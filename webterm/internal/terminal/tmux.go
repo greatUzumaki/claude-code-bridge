@@ -36,8 +36,13 @@ func SessionName(projectID string, n int) string {
 // ensure creates the session (detached) rooted in dir if it does not exist,
 // then makes tmux invisible + touch-friendly. Idempotent.
 func ensure(name, dir string) error {
-	if err := exec.Command("tmux", "new-session", "-A", "-d", "-s", name, "-c", dir).Run(); err != nil {
-		return err
+	// Check if session already exists; only create if it doesn't.
+	// tmux new-session -A -d fails on some tmux versions (e.g. 3.6b on macOS)
+	// when the session exists and there is no controlling terminal.
+	if exec.Command("tmux", "has-session", "-t", name).Run() != nil {
+		if err := exec.Command("tmux", "new-session", "-d", "-s", name, "-c", dir).Run(); err != nil {
+			return err
+		}
 	}
 	_ = exec.Command("tmux", "set-option", "-t", name, "status", "off").Run()
 	_ = exec.Command("tmux", "set-option", "-t", name, "mouse", "on").Run()

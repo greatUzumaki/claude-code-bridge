@@ -1,0 +1,115 @@
+package terminal
+
+import (
+	"encoding/json"
+	"net/http"
+	"os"
+	"os/exec"
+	"strconv"
+
+	"github.com/coder/websocket"
+	"github.com/creack/pty"
+)
+
+// ResolveProject maps a project id → absolute working directory.
+type ResolveProject func(projectID string) (string, bool)
+
+type WSHandler struct {
+	resolve        ResolveProject
+	allowedOrigins []string // empty = strict same-origin (blocks cross-site WS hijack)
+}
+
+func NewWSHandler(resolve ResolveProject, allowedOrigins []string) *WSHandler {
+	return &WSHandler{resolve: resolve, allowedOrigins: allowedOrigins}
+}
+
+type ctrlMsg struct {
+	Type string `json:"type"` // "resize"
+	Cols uint16 `json:"cols"`
+	Rows uint16 `json:"rows"`
+}
+
+func (h *WSHandler) Handle(w http.ResponseWriter, r *http.Request) {
+	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: h.allowedOrigins})
+	if err != nil {
+		return
+	}
+	defer c.Close(websocket.StatusInternalError, "bye")
+	ctx := r.Context()
+
+	q := r.URL.Query()
+	dir, ok := h.resolve(q.Get("project"))
+	if !ok {
+		c.Close(websocket.StatusPolicyViolation, "unknown project")
+		return
+	}
+	n, _ := strconv.Atoi(q.Get("n"))
+	name := SessionName(q.Get("project"), n)
+	cols := atou16(q.Get("cols"), 80)
+	rows := atou16(q.Get("rows"), 24)
+
+	if err := ensure(name, dir); err != nil {
+		c.Close(websocket.StatusInternalError, "tmux ensure failed")
+		return
+	}
+
+	// Thin PTY client that attaches the persistent tmux session.
+	cmd := exec.Command("tmux", "-u", "attach", "-t", name)
+	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
+	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: cols, Rows: rows})
+	if err != nil {
+		c.Close(websocket.StatusInternalError, "pty start failed")
+		return
+	}
+	// On WS end: kill only the attach client → tmux detaches, session persists.
+	defer func() {
+		_ = ptmx.Close()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+			_, _ = cmd.Process.Wait()
+		}
+	}()
+
+	hdr, _ := json.Marshal(map[string]string{"type": "session", "id": name})
+	_ = c.Write(ctx, websocket.MessageText, hdr)
+
+	// tmux (via PTY) → client
+	go func() {
+		buf := make([]byte, 32*1024)
+		for {
+			nr, er := ptmx.Read(buf)
+			if nr > 0 {
+				if ew := c.Write(ctx, websocket.MessageBinary, buf[:nr]); ew != nil {
+					return
+				}
+			}
+			if er != nil {
+				c.Close(websocket.StatusNormalClosure, "closed")
+				return
+			}
+		}
+	}()
+
+	// client → tmux (binary = keystrokes, text = control JSON)
+	for {
+		typ, data, er := c.Read(ctx)
+		if er != nil {
+			return
+		}
+		if typ == websocket.MessageText {
+			var m ctrlMsg
+			if json.Unmarshal(data, &m) == nil && m.Type == "resize" {
+				_ = pty.Setsize(ptmx, &pty.Winsize{Cols: m.Cols, Rows: m.Rows})
+			}
+			continue
+		}
+		_, _ = ptmx.Write(data)
+	}
+}
+
+func atou16(s string, def uint16) uint16 {
+	if v, err := strconv.Atoi(s); err == nil && v > 0 && v < 65535 {
+		return uint16(v)
+	}
+	return def
+}
