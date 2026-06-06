@@ -1,120 +1,120 @@
-# WebTerm — Ideas & Roadmap
+# WebTerm — идеи и роадмап
 
-Living backlog. **📱** = value when used from a phone (1–3). **⚙️** = effort (low/med/high). **⭐** = top picks.
-
----
-
-## ✅ Done
-
-- Project sidebar with subgroups; create project/group (custom modal); **drag project → group** (desktop) + **group-settings modal** (add/remove/rename/delete, phone-friendly).
-- tmux-backed per-project terminal; survives WS drops & server restart; reconnect repaint.
-- **Multiscreen** grid with flexible cols×rows; per-cell project; active-cell focus.
-- **Per-project terminal tabs** (＋), switch instantly, **rename tab**.
-- On-screen key bar (two rows: Esc/Tab/Enter/Ctrl-C + arrows), Ctrl-C confirm modal, evenly distributed keys.
-- Terminal **search**, **font size** (persisted), **connection indicator**.
-- **PWA** (installable, offline shell), **wake-lock**, **safe-area** insets.
-- Sidebar collapses to drawer < 1440px. File tree (full height) + CodeMirror editor (too-large guard).
-- Dark/minimal, unified Tailwind `@theme` tokens. Go single binary, path-jailed, auth seam, oxc lint/format.
+Живой беклог. **📱** = польза на телефоне (1–3). **⚙️** = трудоёмкость (низк/сред/выс). **⭐** = топ. Нумерация сквозная — ссылайся по номеру («сделай #7»).
 
 ---
 
-## 🎯 Backlog (agreed, not yet built)
+## ✅ Сделано
 
-| Idea | 📱 | ⚙️ | Notes |
-|---|---|---|---|
-| ⭐ Command snippets / quick-run buttons | 📱📱📱 | med | Per-project + global; tap → insert/run (`claude`, `git status`, `npm run dev`). localStorage first, server-side later. |
-| Ctrl-mode (sticky) | 📱📱📱 | low | Toggle "Ctrl"; next letter = Ctrl+letter. Covers Ctrl-A…Z one button. |
-| Copy terminal output | 📱📱 | low-med | Selection → clipboard; "copy last output". |
-| File upload / download | 📱📱 | med-high | Share files phone ↔ machine; new Go endpoints. |
-| Login screen (passcode/token) | 📱📱 | med | Before exposing on a domain; backend seam exists, needs UI + cookie. |
+- Сайдбар проектов с подгруппами; создание проекта/группы (кастомная модалка); **drag проекта → группа** (десктоп) + **модалка настроек группы** (добавить/убрать/переименовать/удалить, удобно с телефона).
+- tmux-терминал на проект; переживает обрывы WS И рестарт бинарника; перерисовка при reconnect.
+- **Мультискрин** — сетка cols×rows, проект на ячейку, фокус активной ячейки.
+- **Вкладки терминалов на проект** (＋), мгновенное переключение, переименование вкладки.
+- Экранная панель клавиш (две строки: Esc/Tab/Enter/Ctrl-C + стрелки), модалка подтверждения Ctrl-C.
+- **Поиск** по терминалу, **размер шрифта** (сохраняется), **индикатор соединения**.
+- **PWA** (устанавливается, офлайн-оболочка), **wake-lock**, **safe-area**.
+- Сайдбар сворачивается в drawer < 1440px. Дерево файлов (на всю высоту) + редактор CodeMirror (защита от больших файлов).
+- Тёмная/минимал тема на токенах Tailwind `@theme`. Go single binary, path-jail, auth seam, oxc lint/format.
 
 ---
 
-## 💡 Proposed — new ideas
+## 🎯 Беклог (согласовано, ещё не сделано)
 
-### Automation / Claude
-| Idea | 📱 | ⚙️ | Notes |
-|---|---|---|---|
-| ⭐ Notify when command/claude finishes or waits | 📱📱📱 | med | xterm BEL (`\x07`) + activity/silence → Notification + vibrate. Web Push (app closed) = high. |
-| ⭐ Per-project startup command | 📱📱 | med | Auto-run on first terminal open (`claude`, `nvm use`, `source .venv`). |
-| One-tap "run claude" | 📱 | low | Button sends `claude\n` to active terminal. |
-| Output pattern watch → notify | 📱📱 | med | Regex on output ("error", "build complete", "?") → ping. |
+| # | Идея | 📱 | ⚙️ | Заметка |
+|---|---|---|---|---|
+| 1 | ⭐ Сниппеты команд / кнопки быстрого запуска | 📱📱📱 | сред | На проект + глобально; тап → вставить/выполнить (`claude`, `git status`, `npm run dev`). Сначала localStorage, потом сервер. |
+| 2 | Ctrl-режим (sticky) | 📱📱📱 | низк | Тоггл «Ctrl»; следующая буква = Ctrl+буква. Покрывает Ctrl-A…Z. |
+| 3 | Копирование вывода терминала | 📱📱 | низк-сред | Выделение → буфер; «копировать последний вывод». |
+| 4 | Загрузка / скачивание файлов | 📱📱 | сред-выс | Шарить файлы телефон ↔ машина; новые Go-эндпоинты. |
+| 5 | Экран логина (passcode/token) | 📱📱 | сред | Перед выходом в домен; seam в бэке есть, нужен UI + cookie. |
 
-### Input (phone ergonomics)
-| Idea | 📱 | ⚙️ | Notes |
-|---|---|---|---|
-| ⭐ Voice input (Web Speech) | 📱📱📱 | med | Dictate prompt/command → insert. iOS Safari support partial — verify. |
-| Configurable key bar | 📱📱 | med | User picks which keys appear. |
-| Swipe gestures | 📱📱 | med | Swipe = switch tabs / send arrows; two-finger scroll. |
-| Command palette (Cmd-K) | 📱📱 | med | Fuzzy search projects / actions / snippets. |
-| Bottom-sheet snippets drawer | 📱📱 | med | Quick swipe-up panel of commands. |
+---
 
-### Output / interaction
-| Idea | 📱 | ⚙️ | Notes |
-|---|---|---|---|
-| ⭐ Tap file path / URL in output | 📱📱 | med | Path → open in editor (resolve vs project); URL → browser (links addon). |
-| Tap-to-copy line / long-press select | 📱📱 | low-med | Easier copy on touch. |
-| Clear / scroll-to-top buttons | 📱 | low | Plus existing scroll-to-bottom. |
-| Bell sound/visual toggle | 📱 | low | Visual flash vs audible. |
+## 💡 Идеи (предложено)
 
-### Sessions / continuity
-| Idea | 📱 | ⚙️ | Notes |
-|---|---|---|---|
-| ⭐ Session manager | 📱📱 | med | List all live tmux sessions (per project), attach/kill, "what's running where". |
-| ⭐ Active-session dots on projects | 📱📱 | med | Sidebar dot for projects with live sessions (`term/list`). |
-| Resume last project/tab on open | 📱📱 | low | Persist last context (localStorage). |
-| Broadcast input (multiscreen) | 📱 | med | Type once → all panes (tmux synchronize-panes vibe). |
-| Save/restore named multiscreen layouts | 📱 | med | Recall a grid + project assignment. |
-| Confirm-close terminal with running process | 📱 | low | Avoid accidental detach loss perception. |
+### Автоматизация / Claude
+| # | Идея | 📱 | ⚙️ | Заметка |
+|---|---|---|---|---|
+| 6 | ⭐ Уведомление когда команда/claude закончил или ждёт ввода | 📱📱📱 | сред | BEL (`\x07`) + активность/тишина терминала → Notification + вибро. Web Push (прила закрыта) — отдельно, выс. |
+| 7 | ⭐ Startup-команда проекта | 📱📱 | сред | Авто-запуск при первом открытии терминала проекта (`claude`, `nvm use`, `source .venv`). |
+| 8 | Кнопка «запустить claude» в один тап | 📱 | низк | Шлёт `claude\n` в активный терминал. |
+| 9 | Watch паттернов вывода → уведомление | 📱📱 | сред | Regex по выводу («error», «build complete», «?») → пинг. |
 
-### Files
-| Idea | 📱 | ⚙️ | Notes |
-|---|---|---|---|
-| Image preview / markdown render in viewer | 📱📱 | med | Currently text only. |
-| File search by name (fuzzy) | 📱📱 | med | Within a project. |
-| Editor tabs (multi-file) | 📱 | med | Open several files. |
-| New terminal at folder / file actions in tree | 📱 | low-med | "Open terminal here", rename/delete/download. |
-| Create project from git clone URL | 📱📱 | med | Paste repo → clone into root. |
-| Diff/preview before save | 📱 | med | Show changes before writing. |
+### Ввод (эргономика телефона)
+| # | Идея | 📱 | ⚙️ | Заметка |
+|---|---|---|---|---|
+| 10 | ⭐ Голосовой ввод (Web Speech) | 📱📱📱 | сред | Диктуешь промпт/команду → вставляется. На iOS Safari поддержка частичная — проверить. |
+| 11 | Настраиваемая панель клавиш | 📱📱 | сред | Сам выбираешь какие клавиши в баре. |
+| 12 | Свайп-жесты | 📱📱 | сред | Свайп = листать вкладки / слать стрелки; два пальца — скролл. |
+| 13 | Командная палитра (Cmd-K) | 📱📱 | сред | Fuzzy-поиск проектов / действий / сниппетов. |
+| 14 | Drawer сниппетов снизу | 📱📱 | сред | Свайп-вверх панель команд. |
 
-### Native / PWA
-| Idea | 📱 | ⚙️ | Notes |
-|---|---|---|---|
-| Web Push (task done, app closed) | 📱📱 | high | SW push subscription + server send. Pairs with notifications. |
-| App shortcuts (manifest) | 📱 | low | Long-press icon → jump to project. |
-| Share target | 📱 | med | Share text/URL/file from other apps into WebTerm. |
-| PWA update toast | 📱 | low | "New version — reload". |
-| Haptic feedback on keys | 📱 | low | `navigator.vibrate` (Android). |
+### Вывод / взаимодействие
+| # | Идея | 📱 | ⚙️ | Заметка |
+|---|---|---|---|---|
+| 15 | ⭐ Тап по пути/URL в выводе | 📱📱 | сред | Путь → открыть в редакторе (резолв относительно проекта); URL → браузер (links addon). |
+| 16 | Тап-копирование строки / лонг-пресс выделение | 📱📱 | низк-сред | Проще копировать на тач. |
+| 17 | Кнопки clear / scroll-to-top | 📱 | низк | В дополнение к scroll-to-bottom. |
+| 18 | Тоггл звука/визуала bell | 📱 | низк | Визуальная вспышка vs звук. |
 
-### Dev tooling
-| Idea | 📱 | ⚙️ | Notes |
-|---|---|---|---|
-| Git branch + dirty indicator per project | 📱📱 | med | Sidebar shows branch/✱; needs a git-status endpoint. |
-| Host resource monitor (CPU/mem/load) | 📱 | med | Mini glance widget; read host stats. |
-| Per-project env vars editor | 📱 | med | Manage env injected into the shell. |
-| Remote host (SSH) targets | 📱 | high | A "project" that is a remote machine over ssh. |
+### Сессии / непрерывность
+| # | Идея | 📱 | ⚙️ | Заметка |
+|---|---|---|---|---|
+| 19 | ⭐ Менеджер сессий | 📱📱 | сред | Список всех живых tmux-сессий (по проектам), attach/kill, «что где крутится». |
+| 20 | ⭐ Точки активных сессий на проектах | 📱📱 | сред | В сайдбаре точка у проектов с живыми сессиями (`term/list`). |
+| 21 | Resume last (последний проект/вкладка) | 📱📱 | низк | Сохранять контекст (localStorage). |
+| 22 | Broadcast ввода (мультискрин) | 📱 | сред | Печатаешь раз → во все панели (как tmux synchronize-panes). |
+| 23 | Сохранение/восстановление раскладок мультискрина | 📱 | сред | Именованные раскладки (сетка + проекты). |
+| 24 | Подтверждение закрытия терминала с процессом | 📱 | низк | Чтобы случайно не потерять. |
+
+### Файлы
+| # | Идея | 📱 | ⚙️ | Заметка |
+|---|---|---|---|---|
+| 25 | Превью картинок / рендер markdown во вьювере | 📱📱 | сред | Сейчас только текст. |
+| 26 | Поиск файлов по имени (fuzzy) | 📱📱 | сред | Внутри проекта. |
+| 27 | Вкладки редактора (несколько файлов) | 📱 | сред | Открыть несколько файлов. |
+| 28 | Терминал в папке / действия в дереве | 📱 | низк-сред | «Открыть терминал тут», rename/delete/download. |
+| 29 | Создание проекта из git clone URL | 📱📱 | сред | Вставил репо → клон в root. |
+| 30 | Diff/превью перед сохранением | 📱 | сред | Показать изменения до записи. |
+
+### Нативность / PWA
+| # | Идея | 📱 | ⚙️ | Заметка |
+|---|---|---|---|---|
+| 31 | Web Push (задача готова, прила закрыта) | 📱📱 | выс | SW push-подписка + отправка с сервера. Связано с #6. |
+| 32 | App shortcuts (manifest) | 📱 | низк | Лонг-пресс по иконке → прыжок в проект. |
+| 33 | Share target | 📱 | сред | Шарить текст/URL/файл из других апок в WebTerm. |
+| 34 | Тост обновления PWA | 📱 | низк | «Новая версия — перезагрузить». |
+| 35 | Haptic на клавишах | 📱 | низк | `navigator.vibrate` (Android). |
+
+### Дев-инструменты
+| # | Идея | 📱 | ⚙️ | Заметка |
+|---|---|---|---|---|
+| 36 | Git-индикатор (ветка + dirty) на проект | 📱📱 | сред | В сайдбаре ветка/✱; нужен git-status эндпоинт. |
+| 37 | Монитор ресурсов хоста (CPU/mem/load) | 📱 | сред | Мини-виджет; чтение статов хоста. |
+| 38 | Редактор env-переменных проекта | 📱 | сред | Управление env, инжектируемыми в шелл. |
+| 39 | SSH-таргеты (удалённые хосты) | 📱 | выс | «Проект» = удалённая машина по ssh. |
 
 ### Settings / UX
-| Idea | 📱 | ⚙️ | Notes |
-|---|---|---|---|
-| Settings screen | 📱📱 | med | Consolidate: default font, theme, haptics, wake-lock, startup behavior, bell. |
-| Light theme / accent color / font family | 📱 | med | Currently single dark theme. |
-| Pinned/favorite + recent projects | 📱📱 | low-med | Quick access at top. |
-| Reorder projects/groups (persist order) | 📱 | med | Drag reorder. |
-| Collapse/expand all groups | 📱 | low | One tap. |
-| Export/import config (projects/groups/snippets) JSON | 📱 | low-med | Portable setup. |
+| # | Идея | 📱 | ⚙️ | Заметка |
+|---|---|---|---|---|
+| 40 | Экран настроек | 📱📱 | сред | Свести: шрифт по умолчанию, тема, haptic, wake-lock, поведение старта, bell. |
+| 41 | Светлая тема / акцент / шрифт | 📱 | сред | Сейчас одна тёмная тема. |
+| 42 | Pinned/favorite + недавние проекты | 📱📱 | низк-сред | Быстрый доступ сверху. |
+| 43 | Реордер проектов/групп (с сохранением порядка) | 📱 | сред | Drag-реордер. |
+| 44 | Свернуть/развернуть все группы | 📱 | низк | Один тап. |
+| 45 | Экспорт/импорт конфига (проекты/группы/сниппеты) JSON | 📱 | низк-сред | Переносимый сетап. |
 
-### Security
-| Idea | 📱 | ⚙️ | Notes |
-|---|---|---|---|
-| Biometric / passcode lock (PWA) | 📱📱 | med | WebAuthn / passcode unlock; pairs with login screen. |
-| Idle auto-lock | 📱 | low | Lock after inactivity. |
-| Command audit log | 📱 | med | Record what ran. |
-| Read-only mode toggle | 📱 | low | View without sending input. |
+### Безопасность
+| # | Идея | 📱 | ⚙️ | Заметка |
+|---|---|---|---|---|
+| 46 | Биометрия / passcode-лок (PWA) | 📱📱 | сред | WebAuthn / passcode; связано с #5. |
+| 47 | Idle авто-лок | 📱 | низк | Лок после простоя. |
+| 48 | Журнал команд (audit) | 📱 | сред | Запись что запускалось. |
+| 49 | Режим read-only | 📱 | низк | Смотреть без отправки ввода. |
 
 ---
 
-## Notes
-- Anything touching the host (file up/down, git status, resource monitor, SSH, startup-command persistence) needs new Go endpoints — keep them path-jailed and behind the auth seam.
-- Notifications/voice/wake-lock vary by browser; verify on iOS Safari (most restrictive) before relying on them.
-- Before public-domain exposure: login screen + TLS + `--allowed-origins` + non-root (see README security section).
+## Заметки
+- Всё, что трогает хост (#4 файлы, #29 git clone, #36 git-status, #37 ресурсы, #38 env, #39 SSH, персист #7) — нужны новые Go-эндпоинты; держать за path-jail и auth seam.
+- Уведомления/голос/wake-lock зависят от браузера; проверять на iOS Safari (самый строгий) перед расчётом на них.
+- Перед выходом в публичный домен: #5 логин + TLS + `--allowed-origins` + non-root (см. секцию безопасности в README).
