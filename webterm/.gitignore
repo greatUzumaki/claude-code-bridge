@@ -1,3 +1,8 @@
 /web/node_modules
 /webterm
 *.test
+
+# Built frontend (embedded into the binary at build time) — generated, not tracked.
+# Keep .gitkeep so `//go:embed all:dist` compiles on a fresh clone before `make build`.
+/internal/server/dist/*
+!/internal/server/dist/.gitkeep

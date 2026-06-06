@@ -14,6 +14,7 @@ build: web go ## Build frontend then the Go binary (frontend is embedded)
 
 web: ## Install deps + build the React frontend into the embed dir
 	cd web && npm install && npm run build
+	touch internal/server/dist/.gitkeep   # keep the embed dir tracked (dist itself is gitignored)
 
 go: ## Build the Go binary (expects frontend already built/embedded)
 	go build -o $(BIN) ./cmd/webterm
