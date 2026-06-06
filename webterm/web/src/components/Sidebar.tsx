@@ -138,7 +138,7 @@ export function Sidebar({
             <button
               onClick={onClose}
               aria-label="Close navigation"
-              className="sm:hidden flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-9 h-9 text-muted"
+              className="wide:hidden flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-9 h-9 text-muted"
             >
               <X size={18} />
             </button>

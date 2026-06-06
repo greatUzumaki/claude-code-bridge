@@ -44,8 +44,8 @@ export default function App() {
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden bg-bg">
-      {/* Mobile top app bar */}
-      <div className="sm:hidden flex items-center gap-3 px-3 shrink-0 min-h-11 border-b border-border bg-panel">
+      {/* Top app bar (shown whenever the sidebar is collapsed, i.e. < 1440px) */}
+      <div className="wide:hidden flex items-center gap-3 px-3 shrink-0 min-h-11 border-b border-border bg-panel">
         <button
           onClick={() => setNavOpen(true)}
           aria-label="Open navigation menu"
@@ -68,18 +68,18 @@ export default function App() {
         {/* Backdrop for mobile drawer */}
         {navOpen && (
           <div
-            className="sm:hidden fixed inset-0 z-20 bg-black/55"
+            className="wide:hidden fixed inset-0 z-20 bg-black/55"
             onClick={() => setNavOpen(false)}
             aria-hidden="true"
           />
         )}
 
-        {/* Sidebar: slide-over drawer on phone, static column on sm+ */}
+        {/* Sidebar: slide-over drawer below 1440px, static column at >=1440px */}
         <div
           className={[
-            "fixed sm:static top-0 left-0 z-30 h-full sm:h-auto sm:z-auto",
+            "fixed wide:static top-0 left-0 z-30 h-full wide:h-auto wide:z-auto",
             "transition-transform duration-200 ease-out",
-            "sm:translate-x-0 sm:flex sm:shrink-0",
+            "wide:translate-x-0 wide:flex wide:shrink-0",
             navOpen ? "translate-x-0" : "-translate-x-full",
             "w-72",
           ].join(" ")}

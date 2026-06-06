@@ -7,6 +7,9 @@
   --color-text: #d7dce3;
   --color-muted: #7a828e;
   --color-accent: #5b9dd9;
+
+  /* Sidebar stays a static column only at >=1440px; below it collapses to a drawer. */
+  --breakpoint-wide: 1440px;
 }
 
 html,

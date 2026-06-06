@@ -4,15 +4,15 @@ import { api } from "../lib/api";
 import { buildTree, type Project } from "../lib/grouping";
 import { TerminalPane } from "./TerminalPane";
 
-// Grid count → number of columns (rows are derived). Chosen so there are no
-// empty cells: 2→2×1, 3→3×1, 4→2×2, 6→3×2, 9→3×3.
-const COLS: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 2, 6: 3, 9: 3 };
-const SIZES = [2, 3, 4, 6, 9];
+const STEPS = [1, 2, 3, 4];
 
 export function MultiScreen({ onExit }: { onExit: () => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [count, setCount] = useState(4);
-  const [cells, setCells] = useState<(string | null)[]>(() => Array(4).fill(null));
+  // Layout is rows × cols — pick each independently (e.g. 1×2 = two columns,
+  // 2×1 = two stacked rows). count = cols * rows.
+  const [cols, setCols] = useState(2);
+  const [rows, setRows] = useState(1);
+  const [cells, setCells] = useState<(string | null)[]>(() => Array(2).fill(null));
   const [activeCell, setActiveCell] = useState(0);
 
   useEffect(() => {
@@ -22,9 +22,11 @@ export function MultiScreen({ onExit }: { onExit: () => void }) {
     });
   }, []);
 
-  // Change grid size, preserving existing cell assignments.
-  const setGrid = (n: number) => {
-    setCount(n);
+  // Apply a new layout, preserving existing cell assignments by index.
+  const setLayout = (c: number, r: number) => {
+    setCols(c);
+    setRows(r);
+    const n = c * r;
     setCells((prev) => {
       const next: (string | null)[] = Array(n).fill(null);
       for (let i = 0; i < Math.min(n, prev.length); i++) next[i] = prev[i];
@@ -41,34 +43,38 @@ export function MultiScreen({ onExit }: { onExit: () => void }) {
     });
   };
 
-  const cols = COLS[count] ?? Math.ceil(Math.sqrt(count));
-
   return (
     <div className="h-full w-full flex flex-col bg-bg">
-      {/* Toolbar: grid-size picker + exit */}
-      <div className="shrink-0 flex items-center gap-2 px-2 min-h-11 border-b border-border bg-panel">
+      {/* Toolbar: independent Cols × Rows pickers + exit */}
+      <div className="shrink-0 flex items-center gap-3 px-2 min-h-11 border-b border-border bg-panel overflow-x-auto">
         <LayoutGrid size={16} className="shrink-0 text-muted" />
-        <div className="flex items-center gap-1">
-          {SIZES.map((n) => (
-            <button
-              key={n}
-              onClick={() => setGrid(n)}
-              aria-label={`${n} terminals`}
-              aria-pressed={count === n}
-              className={[
-                "rounded h-9 min-w-9 px-2 text-[13px] transition-colors hover:bg-white/5 active:bg-white/10",
-                count === n ? "text-accent bg-white/5" : "text-muted",
-              ].join(" ")}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
+        {(["Cols", "Rows"] as const).map((kind) => {
+          const cur = kind === "Cols" ? cols : rows;
+          return (
+            <div key={kind} className="flex items-center gap-1 shrink-0">
+              <span className="text-xs text-muted">{kind}</span>
+              {STEPS.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => (kind === "Cols" ? setLayout(n, rows) : setLayout(cols, n))}
+                  aria-label={`${kind} ${n}`}
+                  aria-pressed={cur === n}
+                  className={[
+                    "rounded h-9 min-w-9 text-[13px] transition-colors hover:bg-white/5 active:bg-white/10",
+                    cur === n ? "text-accent bg-white/5" : "text-muted",
+                  ].join(" ")}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          );
+        })}
         <span className="flex-1" />
         <button
           onClick={onExit}
           aria-label="Exit multiscreen"
-          className="flex items-center justify-center rounded h-9 w-9 text-muted transition-colors hover:bg-white/5 active:bg-white/10"
+          className="shrink-0 flex items-center justify-center rounded h-9 w-9 text-muted transition-colors hover:bg-white/5 active:bg-white/10"
         >
           <X size={18} />
         </button>
@@ -77,7 +83,10 @@ export function MultiScreen({ onExit }: { onExit: () => void }) {
       {/* Grid of terminal cells (1px gaps via the border background) */}
       <div
         className="flex-1 min-h-0 grid gap-px bg-border"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+        style={{
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+        }}
       >
         {cells.map((pid, i) => {
           const isActive = i === activeCell;
