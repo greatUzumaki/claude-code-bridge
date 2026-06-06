@@ -2,14 +2,25 @@ package fsapi
 
 import (
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"webterm/internal/pathjail"
 )
 
 const maxRead = 2 << 20 // 2 MiB cap for editor reads
+
+// searchSkipDirs are directory names excluded from recursive search.
+var searchSkipDirs = map[string]bool{
+	".git":         true,
+	"node_modules": true,
+	".webterm":     true,
+}
+
+const searchCap = 300
 
 type API struct{ jail *pathjail.Jail }
 
@@ -18,6 +29,8 @@ func New(j *pathjail.Jail) *API { return &API{jail: j} }
 func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/fs/list", a.list)
 	mux.HandleFunc("GET /api/fs/read", a.read)
+	mux.HandleFunc("GET /api/fs/raw", a.raw)
+	mux.HandleFunc("GET /api/fs/search", a.search)
 	mux.HandleFunc("PUT /api/fs/write", a.write)
 	mux.HandleFunc("POST /api/fs/mkdir", a.mkdir)
 	mux.HandleFunc("POST /api/fs/create", a.create)
@@ -82,6 +95,55 @@ func (a *API) read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"content": string(b), "size": fi.Size()})
+}
+
+func (a *API) raw(w http.ResponseWriter, r *http.Request) {
+	abs, ok := a.resolve(w, r.URL.Query().Get("path"))
+	if !ok {
+		return
+	}
+	fi, err := os.Stat(abs)
+	if err != nil || fi.IsDir() {
+		jsonErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	http.ServeFile(w, r, abs)
+}
+
+func (a *API) search(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	if q == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"matches": []string{}})
+		return
+	}
+	abs, ok := a.resolve(w, r.URL.Query().Get("path"))
+	if !ok {
+		return
+	}
+	qLower := strings.ToLower(q)
+	var matches []string
+	_ = filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() && searchSkipDirs[d.Name()] {
+			return filepath.SkipDir
+		}
+		if !d.IsDir() && strings.Contains(strings.ToLower(d.Name()), qLower) {
+			rel, rerr := filepath.Rel(abs, path)
+			if rerr == nil {
+				matches = append(matches, rel)
+			}
+		}
+		if len(matches) >= searchCap {
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if matches == nil {
+		matches = []string{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"matches": matches})
 }
 
 type pathBody struct {

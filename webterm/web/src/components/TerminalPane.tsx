@@ -13,25 +13,34 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTerminal } from "../hooks/useTerminal";
+import { useSettings } from "../lib/settings";
+import { haptic } from "../lib/haptics";
 
 // Raw byte sequences sent to the PTY. Arrows are the ANSI cursor codes;
 // Enter = CR; "Ctrl C" = 0x03 (SIGINT) — the terminal-useful "cmd+C".
-type Key = { label?: string; icon?: LucideIcon; data: string; aria: string; confirm?: boolean };
+type Key = {
+  id: string;
+  label?: string;
+  icon?: LucideIcon;
+  data: string;
+  aria: string;
+  confirm?: boolean;
+};
 
-// Top row: action keys. Bottom row: arrows.
+// Full catalog with stable ids.
 const ACTION_KEYS: Key[] = [
-  { label: "Esc", data: "\x1b", aria: "Escape" },
-  { label: "Tab", data: "\t", aria: "Tab" },
-  { icon: CornerDownLeft, data: "\r", aria: "Enter" },
+  { id: "esc", label: "Esc", data: "\x1b", aria: "Escape" },
+  { id: "tab", label: "Tab", data: "\t", aria: "Tab" },
+  { id: "enter", icon: CornerDownLeft, data: "\r", aria: "Enter" },
   // Ctrl-C interrupts the running process — confirm before sending (easy to mis-tap on a phone).
-  { label: "Ctrl C", data: "\x03", aria: "Ctrl C (interrupt)", confirm: true },
+  { id: "ctrlc", label: "Ctrl C", data: "\x03", aria: "Ctrl C (interrupt)", confirm: true },
 ];
 
 const ARROW_KEYS: Key[] = [
-  { icon: ArrowLeft, data: "\x1b[D", aria: "Arrow left" },
-  { icon: ArrowUp, data: "\x1b[A", aria: "Arrow up" },
-  { icon: ArrowDown, data: "\x1b[B", aria: "Arrow down" },
-  { icon: ArrowRight, data: "\x1b[C", aria: "Arrow right" },
+  { id: "left", icon: ArrowLeft, data: "\x1b[D", aria: "Arrow left" },
+  { id: "up", icon: ArrowUp, data: "\x1b[A", aria: "Arrow up" },
+  { id: "down", icon: ArrowDown, data: "\x1b[B", aria: "Arrow down" },
+  { id: "right", icon: ArrowRight, data: "\x1b[C", aria: "Arrow right" },
 ];
 
 export function TerminalPane({ projectId, n }: { projectId: string; n?: number }) {
@@ -45,6 +54,8 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
     el,
   );
 
+  const { settings } = useSettings();
+
   const [showKeys, setShowKeys] = useState(false);
   const [confirmKey, setConfirmKey] = useState<Key | null>(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -52,6 +63,7 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const pressKey = (k: Key) => {
+    haptic(settings.haptics);
     if (k.confirm) setConfirmKey(k);
     else send(k.data);
   };
@@ -205,23 +217,27 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
       {/* On-screen key bar — actions on top, arrows on the bottom */}
       {showKeys && (
         <div className="shrink-0 w-full border-t border-border bg-panel pb-[env(safe-area-inset-bottom)]">
-          {[ACTION_KEYS, ARROW_KEYS].map((rowKeys, r) => (
-            <div key={r} className="flex items-stretch gap-1 px-1">
-              {rowKeys.map((k) => {
-                const Icon = k.icon;
-                return (
-                  <button
-                    key={k.aria}
-                    onClick={() => pressKey(k)}
-                    aria-label={k.aria}
-                    className="flex-1 flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 min-w-0 h-11 text-text text-[13px]"
-                  >
-                    {Icon ? <Icon size={18} /> : k.label}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+          {[ACTION_KEYS, ARROW_KEYS].map((rowKeys, r) => {
+            const visible = rowKeys.filter((k) => settings.keys.includes(k.id));
+            if (visible.length === 0) return null;
+            return (
+              <div key={r} className="flex items-stretch gap-1 px-1">
+                {visible.map((k) => {
+                  const Icon = k.icon;
+                  return (
+                    <button
+                      key={k.id}
+                      onClick={() => pressKey(k)}
+                      aria-label={k.aria}
+                      className="flex-1 flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 min-w-0 h-11 text-text text-[13px]"
+                    >
+                      {Icon ? <Icon size={18} /> : k.label}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       )}
 

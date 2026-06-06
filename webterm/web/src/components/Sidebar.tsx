@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -7,7 +7,10 @@ import {
   FolderOpen,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
   LayoutGrid,
+  MoreVertical,
+  Settings,
   Settings2,
   Trash2,
   Check,
@@ -15,6 +18,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { buildTree, type Layout, type Project } from "../lib/grouping";
+import { SettingsModal } from "./SettingsModal";
 
 type Dialog = null | { kind: "project" } | { kind: "group" };
 
@@ -39,6 +43,9 @@ export function Sidebar({
   const [name, setName] = useState("");
   const [settingsGroup, setSettingsGroup] = useState<string | null>(null);
   const [settingsName, setSettingsName] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
   // Desktop drag-and-drop: which project is being dragged, which group is hovered.
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null); // "" = ungrouped
@@ -67,6 +74,19 @@ export function Sidebar({
   };
 
   const toggleGroup = (id: string) => setCollapsed((p) => ({ ...p, [id]: !p[id] }));
+
+  const toggleCollapseAll = () => {
+    const allCollapsed = tree.groups.every((g) => collapsed[g.id]);
+    if (allCollapsed) {
+      // Expand all: clear collapsed state.
+      setCollapsed({});
+    } else {
+      // Collapse all.
+      const next: Record<string, boolean> = {};
+      for (const g of tree.groups) next[g.id] = true;
+      setCollapsed(next);
+    }
+  };
 
   // ── Move (used by drag + group-settings toggles) ──────────────────────────
   const moveTo = async (projectId: string, groupId: string) => {
@@ -187,11 +207,14 @@ export function Sidebar({
             <Plus size={18} />
           </button>
           <button
-            onClick={() => openCreateDialog("group")}
-            aria-label="New group"
+            ref={moreBtnRef}
+            onClick={() => setMoreOpen((v) => !v)}
+            aria-label="More actions"
+            aria-haspopup="menu"
+            aria-expanded={moreOpen}
             className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-9 h-9 text-muted"
           >
-            <FolderPlus size={18} />
+            <MoreVertical size={18} />
           </button>
           {onClose && (
             <button
@@ -204,6 +227,68 @@ export function Sidebar({
           )}
         </span>
       </div>
+
+      {/* More menu (secondary header actions) */}
+      {moreOpen &&
+        moreBtnRef.current &&
+        createPortal(
+          (() => {
+            const r = moreBtnRef.current!.getBoundingClientRect();
+            const allCollapsed =
+              tree.groups.length > 0 && tree.groups.every((g) => collapsed[g.id]);
+            const item =
+              "w-full flex items-center gap-3 px-4 h-11 text-[14px] text-text hover:bg-white/5 active:bg-white/10 text-left";
+            return (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setMoreOpen(false)}
+                  aria-hidden="true"
+                />
+                <div
+                  role="menu"
+                  className="fixed z-50 min-w-[180px] rounded-md border border-border bg-panel shadow-lg overflow-hidden"
+                  style={{ top: r.bottom + 4, right: window.innerWidth - r.right }}
+                >
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      openCreateDialog("group");
+                    }}
+                    className={item}
+                  >
+                    <FolderPlus size={16} className="text-muted shrink-0" /> New group
+                  </button>
+                  {tree.groups.length > 0 && (
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        toggleCollapseAll();
+                      }}
+                      className={item}
+                    >
+                      <ChevronsDownUp size={16} className="text-muted shrink-0" />{" "}
+                      {allCollapsed ? "Expand all" : "Collapse all"}
+                    </button>
+                  )}
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setShowSettings(true);
+                    }}
+                    className={item}
+                  >
+                    <Settings size={16} className="text-muted shrink-0" /> Settings
+                  </button>
+                </div>
+              </>
+            );
+          })(),
+          document.body,
+        )}
 
       {/* Project list */}
       <div className="flex-1 overflow-y-auto px-1 py-1">
@@ -350,6 +435,9 @@ export function Sidebar({
           </div>,
           document.body,
         )}
+
+      {/* ── App settings modal ── */}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {/* ── Create project / group modal ── */}
       {dialog &&

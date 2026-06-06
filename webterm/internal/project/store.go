@@ -47,6 +47,7 @@ type Project struct {
 	Path    string `json:"path"` // relative to root
 	GroupID string `json:"groupId"`
 	Order   int    `json:"order"`
+	Active  bool   `json:"active,omitempty"` // set by handler; never persisted
 }
 
 type Layout struct {

@@ -6,6 +6,7 @@ import (
 	"webterm/internal/fsapi"
 	"webterm/internal/pathjail"
 	"webterm/internal/project"
+	"webterm/internal/sysapi"
 	"webterm/internal/terminal"
 )
 
@@ -39,6 +40,7 @@ func (s *Server) routes() {
 	})
 	fsapi.New(s.jail).Register(s.mux)
 	s.store.Register(s.mux)
+	sysapi.New(s.store).Register(s.mux)
 	wsh := terminal.NewWSHandler(s.store.ProjectPath, s.cfg.AllowedOrigins)
 	s.mux.HandleFunc("/ws/term", wsh.Handle)
 	s.mux.HandleFunc("GET /api/term/list", func(w http.ResponseWriter, r *http.Request) {

@@ -35,6 +35,46 @@ export const api = {
     ),
   writeFile: (path: string, content: string) =>
     fetch("/api/fs/write", jsonInit("PUT", { path, content })).then(j),
+
+  rawUrl: (path: string): string => `/api/fs/raw?path=${encodeURIComponent(path)}`,
+  searchFiles: (path: string, q: string): Promise<{ matches: string[] }> =>
+    fetch(`/api/fs/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(q)}`).then(
+      j<{ matches: string[] }>,
+    ),
+
+  listTerms: (): Promise<{ sessions: string[] }> =>
+    fetch("/api/term/list").then(j<{ sessions: string[] }>),
+  killTerm: (session: string) =>
+    fetch(`/api/term/kill?session=${encodeURIComponent(session)}`, { method: "POST" }).then(j),
+
+  cloneProject: (url: string, name?: string) =>
+    fetch("/api/projects/clone", jsonInit("POST", { url, name })).then(
+      j<{ ok: boolean; name: string }>,
+    ),
+
+  gitStatus: (): Promise<{
+    statuses: Record<string, { isRepo: boolean; branch?: string; dirty?: boolean }>;
+  }> =>
+    fetch("/api/git/status").then(
+      j<{ statuses: Record<string, { isRepo: boolean; branch?: string; dirty?: boolean }> }>,
+    ),
+
+  hostStats: (): Promise<{
+    cpuPercent: number;
+    memUsedMB: number;
+    memTotalMB: number;
+    memPercent: number;
+    load1: number;
+  }> =>
+    fetch("/api/host/stats").then(
+      j<{
+        cpuPercent: number;
+        memUsedMB: number;
+        memTotalMB: number;
+        memPercent: number;
+        load1: number;
+      }>,
+    ),
 };
 
 export type FsEntry = { name: string; dir: boolean; size: number; mtime: number };

@@ -1,0 +1,175 @@
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+import { useSettings } from "../lib/settings";
+
+const ACCENT_PRESETS = [
+  { color: "#5b9dd9", label: "Blue" },
+  { color: "#8b5cf6", label: "Violet" },
+  { color: "#22c55e", label: "Green" },
+  { color: "#f59e0b", label: "Amber" },
+  { color: "#ef4444", label: "Red" },
+];
+
+const KEY_LABELS: Record<string, string> = {
+  esc: "Esc",
+  tab: "Tab",
+  enter: "Enter",
+  ctrlc: "Ctrl C",
+  left: "Arrow Left",
+  up: "Arrow Up",
+  down: "Arrow Down",
+  right: "Arrow Right",
+};
+
+const ALL_KEY_IDS = ["esc", "tab", "enter", "ctrlc", "left", "up", "down", "right"];
+
+export function SettingsModal({ onClose }: { onClose: () => void }) {
+  const { settings, update } = useSettings();
+
+  const toggleKey = (id: string) => {
+    const current = settings.keys;
+    const next = current.includes(id) ? current.filter((k) => k !== id) : [...current, id];
+    update({ keys: next });
+  };
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Settings"
+    >
+      <div className="absolute inset-0 bg-black/55" onClick={onClose} aria-hidden="true" />
+      <div className="relative w-full max-w-sm max-h-[85vh] flex flex-col rounded-lg border border-border bg-panel p-5 overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-text text-sm font-medium">Settings</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close settings"
+            className="flex items-center justify-center rounded w-9 h-9 text-muted hover:bg-white/5 active:bg-white/10"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Theme */}
+        <div className="mb-5">
+          <div className="text-xs uppercase tracking-wider text-muted mb-2">Theme</div>
+          <div className="flex rounded-md border border-border overflow-hidden">
+            <button
+              onClick={() => update({ theme: "dark" })}
+              aria-pressed={settings.theme === "dark"}
+              className={[
+                "flex-1 min-h-11 text-[14px] transition-colors",
+                settings.theme === "dark"
+                  ? "bg-accent text-bg font-medium"
+                  : "text-text hover:bg-white/5 active:bg-white/10",
+              ].join(" ")}
+            >
+              Dark
+            </button>
+            <button
+              onClick={() => update({ theme: "light" })}
+              aria-pressed={settings.theme === "light"}
+              className={[
+                "flex-1 min-h-11 text-[14px] transition-colors border-l border-border",
+                settings.theme === "light"
+                  ? "bg-accent text-bg font-medium"
+                  : "text-text hover:bg-white/5 active:bg-white/10",
+              ].join(" ")}
+            >
+              Light
+            </button>
+          </div>
+        </div>
+
+        {/* Accent color */}
+        <div className="mb-5">
+          <div className="text-xs uppercase tracking-wider text-muted mb-2">Accent color</div>
+          <div className="flex items-center gap-3">
+            {ACCENT_PRESETS.map(({ color, label }) => {
+              const isActive = settings.accent === color;
+              return (
+                <button
+                  key={color}
+                  onClick={() => update({ accent: color })}
+                  aria-label={`Accent ${label}${isActive ? " (selected)" : ""}`}
+                  aria-pressed={isActive}
+                  className="relative flex items-center justify-center w-11 h-11 rounded-full transition-transform active:scale-90"
+                  style={{ backgroundColor: color }}
+                >
+                  {isActive && (
+                    <span
+                      className="absolute inset-0 rounded-full"
+                      style={{ boxShadow: `0 0 0 2px var(--color-panel), 0 0 0 4px ${color}` }}
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Haptics */}
+        <div className="mb-5">
+          <div className="text-xs uppercase tracking-wider text-muted mb-2">Haptics</div>
+          <button
+            onClick={() => update({ haptics: !settings.haptics })}
+            role="switch"
+            aria-checked={settings.haptics}
+            aria-label="Haptic feedback"
+            className="flex items-center gap-3 min-h-11 text-[14px] text-text"
+          >
+            <span
+              className={[
+                "relative inline-flex shrink-0 w-11 h-6 rounded-full transition-colors",
+                settings.haptics ? "bg-accent" : "bg-border",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                  settings.haptics ? "translate-x-6" : "translate-x-1",
+                ].join(" ")}
+              />
+            </span>
+            <span>{settings.haptics ? "On" : "Off"}</span>
+          </button>
+        </div>
+
+        {/* Key bar */}
+        <div>
+          <div className="text-xs uppercase tracking-wider text-muted mb-2">Key bar</div>
+          <div className="flex flex-col">
+            {ALL_KEY_IDS.map((id) => {
+              const enabled = settings.keys.includes(id);
+              return (
+                <button
+                  key={id}
+                  onClick={() => toggleKey(id)}
+                  className="flex items-center gap-3 min-h-11 rounded-sm px-1 transition-colors hover:bg-white/5 active:bg-white/10 text-left"
+                >
+                  <span
+                    className={[
+                      "shrink-0 flex items-center justify-center w-5 h-5 rounded border text-[11px]",
+                      enabled
+                        ? "bg-accent border-accent text-bg"
+                        : "border-border text-transparent",
+                    ].join(" ")}
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </span>
+                  <span className="text-[14px] text-text">{KEY_LABELS[id]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
