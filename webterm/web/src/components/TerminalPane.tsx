@@ -89,16 +89,16 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
             onClick={() => setConfirmKey(null)}
             aria-hidden="true"
           />
-          <div className="relative w-full max-w-xs rounded-lg border border-border bg-panel p-4">
+          <div className="relative w-full max-w-sm rounded-lg border border-border bg-panel p-5">
             <p className="text-text text-sm">
               Send{" "}
               <span className="text-accent font-medium">{confirmKey.label ?? confirmKey.aria}</span>
               ? This interrupts the running process.
             </p>
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-5 flex gap-6">
               <button
                 onClick={() => setConfirmKey(null)}
-                className="rounded px-4 h-11 text-muted transition-colors hover:bg-white/5 active:bg-white/10"
+                className="flex-1 h-14 rounded-md text-[15px] border border-border text-text transition-colors hover:bg-white/5 active:bg-white/10"
               >
                 Cancel
               </button>
@@ -107,7 +107,7 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
                   send(confirmKey.data);
                   setConfirmKey(null);
                 }}
-                className="rounded px-4 h-11 text-accent font-medium transition-colors hover:bg-white/5 active:bg-white/10"
+                className="flex-1 h-14 rounded-md text-[15px] font-medium bg-accent text-bg transition-opacity hover:opacity-90 active:opacity-80"
               >
                 Send
               </button>
