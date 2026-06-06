@@ -6,11 +6,15 @@ import { TerminalPane } from "./TerminalPane";
 // (n=0 → the project's main session, n>0 → wt_<project>_<n>). All panes stay
 // mounted (only the active one is visible) so switching tabs is instant and a
 // background terminal keeps streaming. Closing a tab just detaches — tmux keeps
-// the session alive server-side.
+// the session alive server-side. Tap an already-active tab to rename it.
 export function ProjectTerminals({ projectId }: { projectId: string }) {
   const [tabs, setTabs] = useState<number[]>([0]);
   const [active, setActive] = useState(0);
+  const [labels, setLabels] = useState<Record<number, string>>({});
+  const [editing, setEditing] = useState<number | null>(null);
   const nextN = useRef(1);
+
+  const labelFor = (n: number, i: number) => labels[n] ?? `Term ${i + 1}`;
 
   const addTab = () => {
     const n = nextN.current++;
@@ -24,14 +28,32 @@ export function ProjectTerminals({ projectId }: { projectId: string }) {
   const closeTab = (idx: number) => {
     setTabs((t) => {
       if (t.length <= 1) return t;
+      const removed = t[idx];
       const next = t.filter((_, i) => i !== idx);
       setActive((a) => {
         if (idx < a) return a - 1;
         if (idx === a) return Math.min(a, next.length - 1);
         return a;
       });
+      setLabels((prev) => {
+        if (!(removed in prev)) return prev;
+        const rest = { ...prev };
+        delete rest[removed];
+        return rest;
+      });
       return next;
     });
+  };
+
+  const commitLabel = (n: number, value: string) => {
+    const v = value.trim();
+    setLabels((prev) => {
+      const next = { ...prev };
+      if (v) next[n] = v;
+      else delete next[n];
+      return next;
+    });
+    setEditing(null);
   };
 
   return (
@@ -41,7 +63,7 @@ export function ProjectTerminals({ projectId }: { projectId: string }) {
         {tabs.map((n, i) => (
           <div
             key={n}
-            onClick={() => setActive(i)}
+            onClick={() => (i === active ? setEditing(n) : setActive(i))}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === "Enter" && setActive(i)}
@@ -50,14 +72,30 @@ export function ProjectTerminals({ projectId }: { projectId: string }) {
               i === active ? "text-accent bg-bg" : "text-muted hover:bg-white/5",
             ].join(" ")}
           >
-            <span>Term {i + 1}</span>
+            {editing === n ? (
+              <input
+                autoFocus
+                defaultValue={labelFor(n, i)}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onBlur={(e) => commitLabel(n, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitLabel(n, (e.target as HTMLInputElement).value);
+                  if (e.key === "Escape") setEditing(null);
+                }}
+                aria-label="Rename terminal"
+                className="w-24 h-7 rounded bg-bg border border-accent px-1 text-[13px] text-text outline-none"
+              />
+            ) : (
+              <span className="truncate max-w-[10rem]">{labelFor(n, i)}</span>
+            )}
             {tabs.length > 1 && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   closeTab(i);
                 }}
-                aria-label={`Close terminal ${i + 1}`}
+                aria-label={`Close ${labelFor(n, i)}`}
                 className="flex items-center justify-center rounded w-6 h-6 text-muted hover:bg-white/10 active:bg-white/20"
               >
                 <X size={13} />
