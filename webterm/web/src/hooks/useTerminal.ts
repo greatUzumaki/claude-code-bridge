@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { SearchAddon } from "@xterm/addon-search";
 import "@xterm/xterm/css/xterm.css";
 
 // One live xterm bound to a project's tmux session, with auto-reconnect.
@@ -10,27 +11,62 @@ import "@xterm/xterm/css/xterm.css";
 //
 // Returns `send(data)` so on-screen controls (e.g. a mobile key bar) can inject
 // raw bytes to the PTY through the same WebSocket the terminal uses.
+
+const FONT_SIZE_KEY = "webterm_fontsize";
+const FONT_MIN = 9;
+const FONT_MAX = 24;
+const FONT_DEFAULT = 13;
+
+function clampFont(v: number): number {
+  return Math.max(FONT_MIN, Math.min(FONT_MAX, v));
+}
+
+function loadFontSize(): number {
+  const raw = localStorage.getItem(FONT_SIZE_KEY);
+  if (raw !== null) {
+    const n = parseInt(raw, 10);
+    if (!isNaN(n)) return clampFont(n);
+  }
+  return FONT_DEFAULT;
+}
+
 export function useTerminal(projectId: string, n: number | undefined, el: HTMLDivElement | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
+
+  const [status, setStatus] = useState<"connecting" | "open" | "closed">("connecting");
+  const [fontSize, setFontSizeState] = useState<number>(loadFontSize);
 
   useEffect(() => {
     if (!el) return;
+
+    const initialFontSize = loadFontSize();
+
     const term = new Terminal({
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-      fontSize: 13,
+      fontSize: initialFontSize,
       theme: { background: "#0d0f12", foreground: "#d7dce3", cursor: "#5b9dd9" },
       cursorBlink: true,
     });
     termRef.current = term;
+
     const fit = new FitAddon();
+    fitRef.current = fit;
     term.loadAddon(fit);
+
+    const searchAddon = new SearchAddon();
+    searchAddonRef.current = searchAddon;
+    term.loadAddon(searchAddon);
+
     term.open(el);
     fit.fit();
 
     let closed = false;
 
     const connect = () => {
+      setStatus("connecting");
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const nParam = n != null && n > 0 ? `&n=${n}` : "";
       const ws = new WebSocket(
@@ -38,6 +74,9 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
       );
       wsRef.current = ws;
       ws.binaryType = "arraybuffer";
+      ws.onopen = () => {
+        setStatus("open");
+      };
       ws.onmessage = (ev) => {
         if (typeof ev.data === "string") {
           // parse-and-discard informational text frames (e.g. {"type":"session"})
@@ -46,6 +85,7 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
         term.write(new Uint8Array(ev.data));
       };
       ws.onclose = () => {
+        setStatus("closed");
         if (!closed) setTimeout(connect, 1000);
       };
     };
@@ -73,6 +113,8 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
       wsRef.current = null;
       term.dispose();
       termRef.current = null;
+      fitRef.current = null;
+      searchAddonRef.current = null;
     };
   }, [projectId, n, el]);
 
@@ -83,5 +125,35 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
     termRef.current?.focus();
   }, []);
 
-  return { send };
+  // Adjust font size by delta, clamp, persist, refit, and send resize.
+  const setFont = useCallback((delta: number) => {
+    const term = termRef.current;
+    const fit = fitRef.current;
+    if (!term || !fit) return;
+
+    const next = clampFont((term.options.fontSize ?? FONT_DEFAULT) + delta);
+    term.options.fontSize = next;
+    fit.fit();
+    setFontSizeState(next);
+    localStorage.setItem(FONT_SIZE_KEY, String(next));
+
+    const ws = wsRef.current;
+    if (ws?.readyState === 1) {
+      ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+    }
+  }, []);
+
+  const findNext = useCallback((q: string) => {
+    searchAddonRef.current?.findNext(q, { caseSensitive: false });
+  }, []);
+
+  const findPrevious = useCallback((q: string) => {
+    searchAddonRef.current?.findPrevious(q, { caseSensitive: false });
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    searchAddonRef.current?.clearDecorations();
+  }, []);
+
+  return { send, status, fontSize, setFont, findNext, findPrevious, clearSearch };
 }
