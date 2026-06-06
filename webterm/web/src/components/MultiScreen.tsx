@@ -46,7 +46,7 @@ export function MultiScreen({ onExit }: { onExit: () => void }) {
   return (
     <div className="h-full w-full flex flex-col bg-bg">
       {/* Toolbar: independent Cols × Rows pickers + exit */}
-      <div className="shrink-0 flex items-center gap-3 px-2 min-h-11 border-b border-border bg-panel overflow-x-auto">
+      <div className="shrink-0 flex items-center gap-6 px-2 min-h-11 border-b border-border bg-panel overflow-x-auto">
         <LayoutGrid size={16} className="shrink-0 text-muted" />
         {(["Cols", "Rows"] as const).map((kind) => {
           const cur = kind === "Cols" ? cols : rows;

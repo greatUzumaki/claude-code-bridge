@@ -6,8 +6,10 @@ import { FileTree } from "./components/FileTree";
 import { EditorPane } from "./components/EditorPane";
 import { MultiScreen } from "./components/MultiScreen";
 import type { Project } from "./lib/grouping";
+import { useWakeLock } from "./hooks/useWakeLock";
 
 export default function App() {
+  useWakeLock();
   const [active, setActive] = useState<Project | null>(null);
   const [filesFor, setFilesFor] = useState<Project | null>(null);
   const [openFile, setOpenFile] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export default function App() {
   return (
     <div className="h-dvh flex flex-col overflow-hidden bg-bg">
       {/* Top app bar (shown whenever the sidebar is collapsed, i.e. < 1440px) */}
-      <div className="wide:hidden flex items-center gap-3 px-3 shrink-0 min-h-11 border-b border-border bg-panel">
+      <div className="wide:hidden flex items-center gap-3 px-3 shrink-0 min-h-11 border-b border-border bg-panel pt-[env(safe-area-inset-top)]">
         <button
           onClick={() => setNavOpen(true)}
           aria-label="Open navigation menu"

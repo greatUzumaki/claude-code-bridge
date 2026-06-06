@@ -16,6 +16,7 @@ type Key = { label?: string; icon?: LucideIcon; data: string; aria: string; conf
 
 const KEYS: Key[] = [
   { label: "Esc", data: "\x1b", aria: "Escape" },
+  { label: "Tab", data: "\t", aria: "Tab" },
   { icon: ArrowUp, data: "\x1b[A", aria: "Arrow up" },
   { icon: ArrowLeft, data: "\x1b[D", aria: "Arrow left" },
   { icon: ArrowDown, data: "\x1b[B", aria: "Arrow down" },
@@ -59,7 +60,7 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
 
       {/* On-screen key bar */}
       {showKeys && (
-        <div className="shrink-0 flex items-stretch gap-1 px-1 w-full min-h-11 border-t border-border bg-panel">
+        <div className="shrink-0 flex items-stretch gap-1 px-1 w-full min-h-11 border-t border-border bg-panel pb-[env(safe-area-inset-bottom)]">
           {KEYS.map((k) => {
             const Icon = k.icon;
             return (
