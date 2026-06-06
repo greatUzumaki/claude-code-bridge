@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
-import { TerminalPane } from "./components/TerminalPane";
+import { ProjectTerminals } from "./components/ProjectTerminals";
 import { FileTree } from "./components/FileTree";
 import { EditorPane } from "./components/EditorPane";
 import { MultiScreen } from "./components/MultiScreen";
@@ -110,7 +110,7 @@ export default function App() {
           ) : openFile ? (
             <EditorPane path={openFile} onClose={handleCloseEditor} />
           ) : active ? (
-            <TerminalPane key={active.id} projectId={active.id} />
+            <ProjectTerminals key={active.id} projectId={active.id} />
           ) : (
             <div className="h-full flex items-center justify-center text-sm text-muted">
               select a project

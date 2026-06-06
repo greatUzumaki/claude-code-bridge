@@ -18,16 +18,20 @@ import { useTerminal } from "../hooks/useTerminal";
 // Enter = CR; "Ctrl C" = 0x03 (SIGINT) — the terminal-useful "cmd+C".
 type Key = { label?: string; icon?: LucideIcon; data: string; aria: string; confirm?: boolean };
 
-const KEYS: Key[] = [
+// Top row: action keys. Bottom row: arrows.
+const ACTION_KEYS: Key[] = [
   { label: "Esc", data: "\x1b", aria: "Escape" },
   { label: "Tab", data: "\t", aria: "Tab" },
-  { icon: ArrowUp, data: "\x1b[A", aria: "Arrow up" },
-  { icon: ArrowLeft, data: "\x1b[D", aria: "Arrow left" },
-  { icon: ArrowDown, data: "\x1b[B", aria: "Arrow down" },
-  { icon: ArrowRight, data: "\x1b[C", aria: "Arrow right" },
   { icon: CornerDownLeft, data: "\r", aria: "Enter" },
   // Ctrl-C interrupts the running process — confirm before sending (easy to mis-tap on a phone).
   { label: "Ctrl C", data: "\x03", aria: "Ctrl C (interrupt)", confirm: true },
+];
+
+const ARROW_KEYS: Key[] = [
+  { icon: ArrowLeft, data: "\x1b[D", aria: "Arrow left" },
+  { icon: ArrowUp, data: "\x1b[A", aria: "Arrow up" },
+  { icon: ArrowDown, data: "\x1b[B", aria: "Arrow down" },
+  { icon: ArrowRight, data: "\x1b[C", aria: "Arrow right" },
 ];
 
 export function TerminalPane({ projectId, n }: { projectId: string; n?: number }) {
@@ -140,7 +144,7 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
       {/* Control cluster — bottom-right above key bar */}
       <div
         className="absolute right-2 z-10 flex flex-col items-end gap-1"
-        style={{ bottom: showKeys ? "60px" : "8px" }}
+        style={{ bottom: showKeys ? "100px" : "8px" }}
       >
         {/* Font-size controls */}
         <div className="flex items-center gap-0.5 rounded-full bg-panel border border-border">
@@ -198,22 +202,26 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
         </div>
       </div>
 
-      {/* On-screen key bar */}
+      {/* On-screen key bar — actions on top, arrows on the bottom */}
       {showKeys && (
-        <div className="shrink-0 flex items-stretch gap-1 px-1 w-full min-h-11 border-t border-border bg-panel pb-[env(safe-area-inset-bottom)]">
-          {KEYS.map((k) => {
-            const Icon = k.icon;
-            return (
-              <button
-                key={k.aria}
-                onClick={() => pressKey(k)}
-                aria-label={k.aria}
-                className="flex-1 flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 min-w-0 h-11 text-text text-[13px]"
-              >
-                {Icon ? <Icon size={18} /> : k.label}
-              </button>
-            );
-          })}
+        <div className="shrink-0 w-full border-t border-border bg-panel pb-[env(safe-area-inset-bottom)]">
+          {[ACTION_KEYS, ARROW_KEYS].map((rowKeys, r) => (
+            <div key={r} className="flex items-stretch gap-1 px-1">
+              {rowKeys.map((k) => {
+                const Icon = k.icon;
+                return (
+                  <button
+                    key={k.aria}
+                    onClick={() => pressKey(k)}
+                    aria-label={k.aria}
+                    className="flex-1 flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 min-w-0 h-11 text-text text-[13px]"
+                  >
+                    {Icon ? <Icon size={18} /> : k.label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
 
