@@ -29,7 +29,7 @@ func main() {
 		log.Println("WARNING: tmux not found on PATH — terminals will not work. Install tmux (apt/brew install tmux).")
 	}
 
-	s := server.New(server.Config{Root: *root, Token: *token, AllowedOrigins: splitComma(*origins)})
+	s := server.New(server.Config{Addr: *addr, Root: *root, Token: *token, AllowedOrigins: splitComma(*origins)})
 	log.Printf("WebTerm listening on http://%s (root=%s, auth=%v)", *addr, *root, *token != "")
 	if err := http.ListenAndServe(*addr, s.Handler()); err != nil {
 		log.Fatal(err)

@@ -1,16 +1,21 @@
 package server
 
 import (
+	"log"
+	"net"
 	"net/http"
+	"path/filepath"
 
 	"webterm/internal/fsapi"
 	"webterm/internal/pathjail"
 	"webterm/internal/project"
+	"webterm/internal/push"
 	"webterm/internal/sysapi"
 	"webterm/internal/terminal"
 )
 
 type Config struct {
+	Addr           string   // listen address, e.g. "127.0.0.1:7070"
 	Root           string
 	Token          string   // empty = auth disabled (seam no-op)
 	AllowedOrigins []string // WS Origin host patterns; nil = strict same-origin
@@ -30,6 +35,25 @@ func New(cfg Config) *Server {
 		mux:   http.NewServeMux(),
 		store: project.NewStore(cfg.Root),
 	}
+
+	// Set up Web Push manager; failures are non-fatal.
+	pushDir := filepath.Join(cfg.Root, ".webterm")
+	if mgr, err := push.New(pushDir); err != nil {
+		log.Printf("push: init failed (push disabled): %v", err)
+	} else {
+		// Build the notify hook command that tmux will invoke on silence/bell.
+		// We always target 127.0.0.1 regardless of the bind address; this keeps
+		// the secret off the LAN even if the server binds 0.0.0.0.
+		port := "7070"
+		if _, p, err := net.SplitHostPort(cfg.Addr); err == nil && p != "" {
+			port = p
+		}
+		terminal.NotifyHook = `run-shell "curl -s -m 2 'http://127.0.0.1:` + port +
+			`/api/notify?key=` + mgr.NotifySecret() + `&session=#{session_name}'"`
+
+		mgr.Register(s.mux)
+	}
+
 	s.routes()
 	return s
 }

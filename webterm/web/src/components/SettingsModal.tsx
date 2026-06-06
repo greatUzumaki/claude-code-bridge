@@ -1,6 +1,8 @@
 import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useSettings } from "../lib/settings";
+import { pushSupported, pushPermission, isSubscribed, enablePush, disablePush } from "../lib/push";
 
 const ACCENT_PRESETS = [
   { color: "#5b9dd9", label: "Blue" },
@@ -30,6 +32,39 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     const current = settings.keys;
     const next = current.includes(id) ? current.filter((k) => k !== id) : [...current, id];
     update({ keys: next });
+  };
+
+  // --- Push notifications state ---
+  const supported = pushSupported();
+  const permission = pushPermission();
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    if (!supported) return;
+    isSubscribed()
+      .then(setPushOn)
+      .catch(() => {
+        /* ignore */
+      });
+  }, [supported]);
+
+  const handlePushToggle = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (pushOn) {
+        await disablePush();
+        setPushOn(false);
+      } else {
+        const ok = await enablePush();
+        if (ok) setPushOn(true);
+      }
+    } catch {
+      /* revert on failure — state stays unchanged */
+    } finally {
+      setPushBusy(false);
+    }
   };
 
   return createPortal(
@@ -140,7 +175,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Key bar */}
-        <div>
+        <div className="mb-5">
           <div className="text-xs uppercase tracking-wider text-muted mb-2">Key bar</div>
           <div className="flex flex-col">
             {ALL_KEY_IDS.map((id) => {
@@ -167,6 +202,45 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               );
             })}
           </div>
+        </div>
+
+        {/* Notifications */}
+        <div>
+          <div className="text-xs uppercase tracking-wider text-muted mb-2">Notifications</div>
+          {!supported ? (
+            <p className="text-[13px] text-muted">Not supported in this browser.</p>
+          ) : permission === "denied" ? (
+            <p className="text-[13px] text-muted">
+              Blocked — allow notifications in browser settings.
+            </p>
+          ) : (
+            <button
+              onClick={handlePushToggle}
+              role="switch"
+              aria-checked={pushOn}
+              aria-label="Push notifications"
+              disabled={pushBusy}
+              className="flex items-center gap-3 min-h-11 text-[14px] text-text disabled:opacity-60"
+            >
+              <span
+                className={[
+                  "relative inline-flex shrink-0 w-11 h-6 rounded-full transition-colors",
+                  pushOn ? "bg-accent" : "bg-border",
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                    pushOn ? "translate-x-6" : "translate-x-1",
+                  ].join(" ")}
+                />
+              </span>
+              <span>{pushOn ? "On" : "Off"}</span>
+            </button>
+          )}
+          <p className="mt-2 text-[12px] text-muted leading-relaxed">
+            iOS: works only as an installed PWA (Add to Home Screen). Requires HTTPS.
+          </p>
         </div>
       </div>
     </div>,

@@ -11,6 +11,15 @@ import (
 
 const sessionPrefix = "wt_"
 
+// NotifyHook, when non-empty, is installed on each tmux session as an
+// alert-silence and alert-bell hook. Server sets this at startup.
+// It must be a complete tmux run-shell command string, e.g.:
+//
+//	run-shell "curl -s -m 2 'http://127.0.0.1:7070/api/notify?key=SECRET&session=#{session_name}'"
+//
+// tmux expands #{session_name} before executing the shell command.
+var NotifyHook string
+
 // Available reports whether tmux is installed on the host.
 func Available() bool {
 	_, err := exec.LookPath("tmux")
@@ -47,6 +56,19 @@ func ensure(name, dir string) error {
 	_ = exec.Command("tmux", "set-option", "-t", name, "status", "off").Run()
 	_ = exec.Command("tmux", "set-option", "-t", name, "mouse", "on").Run()
 	_ = exec.Command("tmux", "set-option", "-g", "history-limit", "100000").Run()
+
+	// Install silence/bell notification hooks if the server has configured one.
+	// monitor-silence 20 triggers alert-silence after 20 s of no output.
+	// monitor-bell triggers alert-bell on a terminal BEL character.
+	// The hook command is passed as a single argv element; tmux expands
+	// #{session_name} internally before handing the string to the shell.
+	if NotifyHook != "" {
+		_ = exec.Command("tmux", "set-window-option", "-t", name, "monitor-silence", "20").Run()
+		_ = exec.Command("tmux", "set-window-option", "-t", name, "monitor-bell", "on").Run()
+		_ = exec.Command("tmux", "set-hook", "-t", name, "alert-silence", NotifyHook).Run()
+		_ = exec.Command("tmux", "set-hook", "-t", name, "alert-bell", NotifyHook).Run()
+	}
+
 	return nil
 }
 
