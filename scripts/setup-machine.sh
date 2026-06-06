@@ -11,7 +11,7 @@
 #
 set -euo pipefail
 
-NODE_MAJOR=22
+NODE_MAJOR=24
 
 log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*" >&2; }
