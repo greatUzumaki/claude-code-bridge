@@ -4,6 +4,7 @@ import { Sidebar } from "./components/Sidebar";
 import { TerminalPane } from "./components/TerminalPane";
 import { FileTree } from "./components/FileTree";
 import { EditorPane } from "./components/EditorPane";
+import { MultiScreen } from "./components/MultiScreen";
 import type { Project } from "./lib/grouping";
 
 export default function App() {
@@ -11,6 +12,12 @@ export default function App() {
   const [filesFor, setFilesFor] = useState<Project | null>(null);
   const [openFile, setOpenFile] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  const [multi, setMulti] = useState(false);
+
+  const toggleMulti = () => {
+    setMulti((m) => !m);
+    setNavOpen(false);
+  };
 
   const handleSelectProject = (p: Project) => {
     setActive(p);
@@ -61,8 +68,7 @@ export default function App() {
         {/* Backdrop for mobile drawer */}
         {navOpen && (
           <div
-            className="sm:hidden fixed inset-0 z-20"
-            style={{ background: "rgba(0,0,0,0.55)" }}
+            className="sm:hidden fixed inset-0 z-20 bg-black/55"
             onClick={() => setNavOpen(false)}
             aria-hidden="true"
           />
@@ -83,6 +89,8 @@ export default function App() {
             onSelect={handleSelectProject}
             onViewFiles={handleViewFiles}
             onClose={() => setNavOpen(false)}
+            multi={multi}
+            onToggleMulti={toggleMulti}
           />
         </div>
 
@@ -93,9 +101,11 @@ export default function App() {
           </div>
         )}
 
-        {/* Main content area: terminal or editor */}
+        {/* Main content area: multiscreen grid, or terminal / editor */}
         <div className="flex-1 min-w-0 h-full relative">
-          {openFile ? (
+          {multi ? (
+            <MultiScreen onExit={() => setMulti(false)} />
+          ) : openFile ? (
             <EditorPane path={openFile} onClose={handleCloseEditor} />
           ) : active ? (
             <TerminalPane key={active.id} projectId={active.id} />
