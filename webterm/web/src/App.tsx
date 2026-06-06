@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Menu } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, FolderOpen } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
 import { ProjectTerminals } from "./components/ProjectTerminals";
 import { FileTree } from "./components/FileTree";
 import { EditorPane } from "./components/EditorPane";
 import { MultiScreen } from "./components/MultiScreen";
+import { HeaderStatus } from "./components/HeaderStatus";
 import type { Project } from "./lib/grouping";
 import { useWakeLock } from "./hooks/useWakeLock";
 
@@ -15,6 +16,14 @@ export default function App() {
   const [openFile, setOpenFile] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
   const [multi, setMulti] = useState(false);
+
+  // PWA app-shortcuts: /?action=multi | projects
+  useEffect(() => {
+    const action = new URLSearchParams(location.search).get("action");
+    if (action === "multi") setMulti(true);
+    if (action === "projects") setNavOpen(true);
+    if (action) window.history.replaceState(null, "", location.pathname);
+  }, []);
 
   const toggleMulti = () => {
     setMulti((m) => !m);
@@ -29,6 +38,7 @@ export default function App() {
 
   const handleViewFiles = (p: Project) => {
     setFilesFor(p);
+    setNavOpen(true); // ensure the file tree (in the sidebar slot) is visible on phone
   };
 
   const handleCloseFiles = () => {
@@ -38,6 +48,7 @@ export default function App() {
 
   const handleOpenFile = (path: string) => {
     setOpenFile(path);
+    setNavOpen(false); // close the drawer on phone so the editor is visible
   };
 
   const handleCloseEditor = () => {
@@ -45,47 +56,29 @@ export default function App() {
   };
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden bg-bg">
-      {/* Top app bar (shown whenever the sidebar is collapsed, i.e. < 1440px) */}
-      <div className="wide:hidden flex items-center gap-3 px-3 shrink-0 min-h-11 border-b border-border bg-panel pt-[env(safe-area-inset-top)]">
-        <button
-          onClick={() => setNavOpen(true)}
-          aria-label="Open navigation menu"
-          className="flex items-center justify-center rounded active:bg-white/10 hover:bg-white/5 w-11 h-11 text-text"
-        >
-          <Menu size={20} />
-        </button>
-        <span
-          className={[
-            "flex-1 truncate text-sm font-medium",
-            active ? "text-text" : "text-muted",
-          ].join(" ")}
-        >
-          {active ? active.name : "WebTerm"}
-        </span>
-      </div>
-
-      {/* Body row */}
-      <div className="flex flex-1 min-h-0">
-        {/* Backdrop for mobile drawer */}
-        {navOpen && (
-          <div
-            className="wide:hidden fixed inset-0 z-20 bg-black/55"
-            onClick={() => setNavOpen(false)}
-            aria-hidden="true"
-          />
-        )}
-
-        {/* Sidebar: slide-over drawer below 1440px, static column at >=1440px */}
+    <div className="h-dvh flex overflow-hidden bg-bg">
+      {/* Backdrop for mobile drawer */}
+      {navOpen && (
         <div
-          className={[
-            "fixed wide:static top-0 left-0 z-30 h-full wide:h-auto wide:z-auto",
-            "transition-transform duration-200 ease-out",
-            "wide:translate-x-0 wide:flex wide:shrink-0",
-            navOpen ? "translate-x-0" : "-translate-x-full",
-            "w-72",
-          ].join(" ")}
-        >
+          className="wide:hidden fixed inset-0 z-20 bg-black/55"
+          onClick={() => setNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar — full height; slide-over drawer below 1440px, static column ≥1440px */}
+      <div
+        className={[
+          "fixed wide:static top-0 left-0 z-30 h-full wide:z-auto",
+          "transition-transform duration-200 ease-out",
+          "wide:translate-x-0 wide:flex wide:shrink-0",
+          navOpen ? "translate-x-0" : "-translate-x-full",
+          "w-72 pt-[env(safe-area-inset-top)]",
+        ].join(" ")}
+      >
+        {filesFor ? (
+          <FileTree root={filesFor.path} onOpen={handleOpenFile} onClose={handleCloseFiles} />
+        ) : (
           <Sidebar
             activeId={active?.id ?? ""}
             onSelect={handleSelectProject}
@@ -94,17 +87,44 @@ export default function App() {
             multi={multi}
             onToggleMulti={toggleMulti}
           />
+        )}
+      </div>
+
+      {/* Right side: header (over the main area only) + content */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 shrink-0 min-h-11 border-b border-border bg-panel pt-[env(safe-area-inset-top)]">
+          <button
+            onClick={() => setNavOpen(true)}
+            aria-label="Open navigation menu"
+            className="wide:hidden flex items-center justify-center rounded active:bg-white/10 hover:bg-white/5 w-11 h-11 text-text"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-1 min-w-0">
+            <span
+              className={["truncate text-sm font-medium", active ? "text-text" : "text-muted"].join(
+                " ",
+              )}
+            >
+              {active ? active.name : "WebTerm"}
+            </span>
+            {active && (
+              <button
+                onClick={() => handleViewFiles(active)}
+                aria-label="View project files"
+                className="shrink-0 flex items-center justify-center rounded w-9 h-9 text-muted hover:bg-white/5 active:bg-white/10"
+              >
+                <FolderOpen size={18} />
+              </button>
+            )}
+          </div>
+          <span className="flex-1" />
+          <HeaderStatus />
         </div>
 
-        {/* File tree: full-screen overlay on phone, full-HEIGHT column on sm+ */}
-        {filesFor && !openFile && (
-          <div className="fixed inset-0 z-20 sm:static sm:inset-auto sm:z-auto sm:h-full sm:w-64 sm:shrink-0">
-            <FileTree root={filesFor.path} onOpen={handleOpenFile} onClose={handleCloseFiles} />
-          </div>
-        )}
-
-        {/* Main content area: multiscreen grid, or terminal / editor */}
-        <div className="flex-1 min-w-0 h-full relative">
+        {/* Main content: multiscreen grid, or terminal / editor */}
+        <div className="flex-1 min-h-0 relative">
           {multi ? (
             <MultiScreen onExit={() => setMulti(false)} />
           ) : openFile ? (

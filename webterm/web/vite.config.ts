@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icon.svg"],
+      includeAssets: ["favicon.ico", "apple-touch-icon.png", "favicon-16x16.png", "favicon-32x32.png"],
       manifest: {
         name: "WebTerm",
         short_name: "WebTerm",
@@ -20,14 +20,20 @@ export default defineConfig({
         orientation: "any",
         start_url: "/",
         icons: [
-          { src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
-          { src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },
+          { src: "android-chrome-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "android-chrome-512x512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "android-chrome-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+        // Long-press the installed app icon → jump straight to an action.
+        shortcuts: [
+          { name: "Multiscreen", short_name: "Grid", url: "/?action=multi" },
+          { name: "Projects", short_name: "Projects", url: "/?action=projects" },
         ],
       },
       workbox: {
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/, /^\/ws/],
-        globPatterns: ["**/*.{js,css,html,svg}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
       },
     }),
   ],

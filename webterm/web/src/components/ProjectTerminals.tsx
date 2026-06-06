@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Plus, X } from "lucide-react";
 import { TerminalPane } from "./TerminalPane";
 
@@ -12,7 +13,54 @@ export function ProjectTerminals({ projectId }: { projectId: string }) {
   const [active, setActive] = useState(0);
   const [labels, setLabels] = useState<Record<number, string>>({});
   const [editing, setEditing] = useState<number | null>(null);
+  const [confirmIdx, setConfirmIdx] = useState<number | null>(null);
   const nextN = useRef(1);
+
+  // Two-finger horizontal swipe over the panes switches tabs (one-finger is left
+  // to xterm for normal scrolling).
+  const panesRef = useRef<HTMLDivElement>(null);
+  const tabsLenRef = useRef(tabs.length);
+  tabsLenRef.current = tabs.length;
+  useEffect(() => {
+    const el = panesRef.current;
+    if (!el) return;
+    let startX = 0;
+    let two = false;
+    let fired = false;
+    const avg = (t: TouchList) => (t[0].clientX + t[1].clientX) / 2;
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        startX = avg(e.touches);
+        two = true;
+        fired = false;
+      } else {
+        two = false;
+      }
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!two || fired || e.touches.length !== 2) return;
+      const dx = avg(e.touches) - startX;
+      if (Math.abs(dx) > 60) {
+        e.preventDefault();
+        fired = true;
+        setActive((a) => {
+          const n = tabsLenRef.current;
+          return dx < 0 ? Math.min(a + 1, n - 1) : Math.max(a - 1, 0); // ← next, → prev
+        });
+      }
+    };
+    const onEnd = () => {
+      two = false;
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+    };
+  }, []);
 
   const labelFor = (n: number, i: number) => labels[n] ?? `Term ${i + 1}`;
 
@@ -93,7 +141,7 @@ export function ProjectTerminals({ projectId }: { projectId: string }) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  closeTab(i);
+                  setConfirmIdx(i);
                 }}
                 aria-label={`Close ${labelFor(n, i)}`}
                 className="flex items-center justify-center rounded w-6 h-6 text-muted hover:bg-white/10 active:bg-white/20"
@@ -113,13 +161,60 @@ export function ProjectTerminals({ projectId }: { projectId: string }) {
       </div>
 
       {/* Panes — all mounted; only the active one is visible */}
-      <div className="flex-1 min-h-0 relative">
+      <div ref={panesRef} className="flex-1 min-h-0 relative">
         {tabs.map((n, i) => (
           <div key={n} className={i === active ? "absolute inset-0" : "hidden"}>
             <TerminalPane projectId={projectId} n={n === 0 ? undefined : n} />
           </div>
         ))}
       </div>
+
+      {/* Confirm before closing a terminal tab */}
+      {confirmIdx !== null &&
+        createPortal(
+          (() => {
+            const idx = confirmIdx;
+            return (
+              <div
+                className="fixed inset-0 z-40 flex items-center justify-center p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Close terminal"
+              >
+                <div
+                  className="absolute inset-0 bg-black/55"
+                  onClick={() => setConfirmIdx(null)}
+                  aria-hidden="true"
+                />
+                <div className="relative w-full max-w-sm rounded-lg border border-border bg-panel p-5">
+                  <p className="text-text text-sm">
+                    Close{" "}
+                    <span className="text-accent font-medium">{labelFor(tabs[idx], idx)}</span>? The
+                    tmux session keeps running on the server.
+                  </p>
+                  <div className="mt-5 flex gap-4">
+                    <button
+                      onClick={() => setConfirmIdx(null)}
+                      className="flex-1 h-12 rounded-md text-[15px] border border-border text-text transition-colors hover:bg-white/5 active:bg-white/10"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        closeTab(idx);
+                        setConfirmIdx(null);
+                      }}
+                      className="flex-1 h-12 rounded-md text-[15px] font-medium bg-accent text-bg transition-opacity hover:opacity-90 active:opacity-80"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })(),
+          document.body,
+        )}
     </div>
   );
 }

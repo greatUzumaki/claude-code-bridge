@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useId } from "react";
 import {
   Keyboard,
   ArrowUp,
@@ -15,6 +15,7 @@ import {
 import { useTerminal } from "../hooks/useTerminal";
 import { useSettings } from "../lib/settings";
 import { haptic } from "../lib/haptics";
+import { reportConn, unreportConn } from "../lib/connStatus";
 
 // Raw byte sequences sent to the PTY. Arrows are the ANSI cursor codes;
 // Enter = CR; "Ctrl C" = 0x03 (SIGINT) — the terminal-useful "cmd+C".
@@ -89,22 +90,15 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
     if (searchQuery) findPrevious(searchQuery);
   }, [findPrevious, searchQuery]);
 
-  // Status dot appearance
-  const dotColor = status === "open" ? "bg-green-500" : "bg-amber-500";
-  const statusLabel =
-    status === "open" ? "Connected" : status === "connecting" ? "Connecting…" : "Disconnected";
+  // Report this terminal's connection status to the global header indicator.
+  const paneId = useId();
+  useEffect(() => {
+    reportConn(paneId, status);
+  }, [paneId, status]);
+  useEffect(() => () => unreportConn(paneId), [paneId]);
 
   return (
     <div className="h-full w-full flex flex-col relative bg-bg">
-      {/* Connection status dot — top-right */}
-      <span
-        className={["absolute top-2 right-2 z-20 rounded-full", dotColor].join(" ")}
-        style={{ width: 8, height: 8 }}
-        title={statusLabel}
-        aria-label={statusLabel}
-        role="status"
-      />
-
       {/* In-terminal search bar — slides in below the dot row */}
       {showSearch && (
         <div className="absolute top-0 left-0 right-0 z-30 flex items-center gap-1 px-2 py-1 bg-panel border-b border-border">

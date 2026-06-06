@@ -15,12 +15,32 @@ import {
   Trash2,
   Check,
   X,
+  Star,
+  GitBranch,
+  MonitorPlay,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { buildTree, type Layout, type Project } from "../lib/grouping";
 import { SettingsModal } from "./SettingsModal";
+import { SessionsModal } from "./SessionsModal";
 
 type Dialog = null | { kind: "project" } | { kind: "group" };
+
+type GitInfo = { isRepo: boolean; branch?: string; dirty?: boolean };
+
+// ── localStorage helpers ───────────────────────────────────────────────────
+const PINS_KEY = "webterm_pins";
+
+function loadPins(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(PINS_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+function savePins(ids: string[]) {
+  localStorage.setItem(PINS_KEY, JSON.stringify(ids));
+}
 
 export function Sidebar({
   activeId,
@@ -41,18 +61,42 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [dialog, setDialog] = useState<Dialog>(null);
   const [name, setName] = useState("");
+  const [cloneUrl, setCloneUrl] = useState("");
   const [settingsGroup, setSettingsGroup] = useState<string | null>(null);
   const [settingsName, setSettingsName] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [showSessions, setShowSessions] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreBtnRef = useRef<HTMLButtonElement>(null);
   // Desktop drag-and-drop: which project is being dragged, which group is hovered.
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null); // "" = ungrouped
 
+  // ── Feature state ──────────────────────────────────────────────────────────
+  const [gitStatuses, setGitStatuses] = useState<Record<string, GitInfo>>({});
+  const [pins, setPins] = useState<string[]>(loadPins);
+
   const refresh = () => api.listProjects().then(setLayout);
   useEffect(() => {
+    localStorage.removeItem("webterm_recent"); // legacy: Recent section removed
     refresh();
+    // Poll active sessions every 5s (#20)
+    const t = setInterval(() => {
+      refresh().catch(() => {});
+    }, 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Git status fetch + poll every 15s (#36)
+  useEffect(() => {
+    const fetchGit = () =>
+      api
+        .gitStatus()
+        .then((r) => setGitStatuses(r.statuses))
+        .catch(() => {});
+    fetchGit();
+    const t = setInterval(fetchGit, 15000);
+    return () => clearInterval(t);
   }, []);
 
   const tree = buildTree(layout);
@@ -60,16 +104,24 @@ export function Sidebar({
   // ── Create dialog ─────────────────────────────────────────────────────────
   const openCreateDialog = (kind: "project" | "group") => {
     setName("");
+    setCloneUrl("");
     setDialog({ kind });
   };
   const submitDialog = async () => {
     if (!dialog) return;
     const n = name.trim();
-    if (!n) return;
-    if (dialog.kind === "project") await api.createProject(n);
-    else await api.createGroup(n);
+    if (dialog.kind === "group") {
+      if (!n) return;
+      await api.createGroup(n);
+    } else {
+      const url = cloneUrl.trim();
+      if (url) await api.cloneProject(url, n || undefined);
+      else if (n) await api.createProject(n);
+      else return;
+    }
     setDialog(null);
     setName("");
+    setCloneUrl("");
     refresh();
   };
 
@@ -78,10 +130,8 @@ export function Sidebar({
   const toggleCollapseAll = () => {
     const allCollapsed = tree.groups.every((g) => collapsed[g.id]);
     if (allCollapsed) {
-      // Expand all: clear collapsed state.
       setCollapsed({});
     } else {
-      // Collapse all.
       const next: Record<string, boolean> = {};
       for (const g of tree.groups) next[g.id] = true;
       setCollapsed(next);
@@ -127,9 +177,21 @@ export function Sidebar({
     setDropTarget(null);
   };
 
+  // ── Pin toggle (#42) ──────────────────────────────────────────────────────
+  const togglePin = (id: string) => {
+    setPins((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [id, ...prev];
+      savePins(next);
+      return next;
+    });
+  };
+
   // ── Project row ───────────────────────────────────────────────────────────
   const row = (p: Project) => {
     const isActive = p.id === activeId;
+    const isPinned = pins.includes(p.id);
+    const gitInfo = gitStatuses[p.id];
+
     return (
       <div
         key={p.id}
@@ -153,6 +215,17 @@ export function Sidebar({
         ].join(" ")}
       >
         <SquareTerminal size={16} className="shrink-0 text-muted" />
+
+        {/* Active-session dot (#20) — green when live tmux session */}
+        {p.active && (
+          <span
+            className="shrink-0 rounded-full bg-green-500"
+            aria-label="live session"
+            style={{ width: "6px", height: "6px" }}
+          />
+        )}
+
+        {/* Selected accent dot (original behaviour) */}
         {isActive && (
           <span
             className="shrink-0 rounded-full bg-accent"
@@ -160,24 +233,60 @@ export function Sidebar({
             style={{ width: "6px", height: "6px" }}
           />
         )}
+
         <span className="flex-1 truncate text-[15px]">{p.name}</span>
-        {isActive && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewFiles(p);
-            }}
-            aria-label="View project files"
-            className="flex items-center justify-center shrink-0 rounded transition-colors hover:bg-white/10 active:bg-white/15 w-9 h-9 text-muted"
-          >
-            <FolderOpen size={16} />
-          </button>
+
+        {/* Git branch info (#36) */}
+        {gitInfo?.isRepo && gitInfo.branch && (
+          <span className="flex items-center gap-0.5 text-muted shrink-0 max-w-[80px] min-w-0">
+            <GitBranch size={11} className="shrink-0" />
+            <span className="truncate text-[11px]">{gitInfo.branch}</span>
+            {gitInfo.dirty && (
+              <span className="text-accent text-[11px] shrink-0" aria-label="dirty">
+                ✱
+              </span>
+            )}
+          </span>
         )}
+
+        {/* Pin button (#42) */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            togglePin(p.id);
+          }}
+          aria-label={isPinned ? "Unpin project" : "Pin project"}
+          aria-pressed={isPinned}
+          className={[
+            "flex items-center justify-center shrink-0 rounded transition-colors hover:bg-white/10 active:bg-white/15 w-7 h-7",
+            isPinned ? "text-accent" : "text-muted/40 hover:text-muted",
+          ].join(" ")}
+        >
+          <Star size={13} fill={isPinned ? "currentColor" : "none"} />
+        </button>
+
+        {/* View files — available for every project (no connection needed) */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewFiles(p);
+          }}
+          aria-label="View project files"
+          className="flex items-center justify-center shrink-0 rounded transition-colors hover:bg-white/10 active:bg-white/15 w-9 h-9 text-muted"
+        >
+          <FolderOpen size={16} />
+        </button>
       </div>
     );
   };
 
   const settings = settingsGroup ? layout.groups.find((g) => g.id === settingsGroup) : undefined;
+
+  // ── Derived lists for Pinned / Recent (#42) ────────────────────────────────
+  const allProjects = layout.projects ?? [];
+  const pinnedProjects = pins
+    .map((id) => allProjects.find((p) => p.id === id))
+    .filter((p): p is Project => p !== undefined);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -273,6 +382,17 @@ export function Sidebar({
                       {allCollapsed ? "Expand all" : "Collapse all"}
                     </button>
                   )}
+                  {/* Sessions menu item (#19) */}
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setShowSessions(true);
+                    }}
+                    className={item}
+                  >
+                    <MonitorPlay size={16} className="text-muted shrink-0" /> Sessions
+                  </button>
                   <button
                     role="menuitem"
                     onClick={() => {
@@ -292,6 +412,16 @@ export function Sidebar({
 
       {/* Project list */}
       <div className="flex-1 overflow-y-auto px-1 py-1">
+        {/* Pinned section (#42) */}
+        {pinnedProjects.length > 0 && (
+          <div className="mb-1">
+            <div className="px-3 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted font-semibold">
+              Pinned
+            </div>
+            {pinnedProjects.map(row)}
+          </div>
+        )}
+
         {/* Ungrouped (drop target) */}
         <div
           onDragOver={onZoneOver("")}
@@ -303,7 +433,7 @@ export function Sidebar({
           ].join(" ")}
         >
           {dragId && <div className="px-3 py-1 text-[11px] text-muted">Drop here → ungrouped</div>}
-          {tree.ungrouped.map(row)}
+          {tree.ungrouped.filter((p) => !pins.includes(p.id)).map(row)}
         </div>
 
         {tree.groups.map((g) => {
@@ -345,7 +475,11 @@ export function Sidebar({
                   <Settings2 size={16} />
                 </button>
               </div>
-              {!isCollapsed && <div className="pl-2">{g.projects.map(row)}</div>}
+              {!isCollapsed && (
+                <div className="pl-2">
+                  {g.projects.filter((p) => !pins.includes(p.id)).map(row)}
+                </div>
+              )}
             </div>
           );
         })}
@@ -439,6 +573,9 @@ export function Sidebar({
       {/* ── App settings modal ── */}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
+      {/* ── Session manager modal (#19) ── */}
+      {showSessions && <SessionsModal onClose={() => setShowSessions(false)} />}
+
       {/* ── Create project / group modal ── */}
       {dialog &&
         createPortal(
@@ -465,9 +602,23 @@ export function Sidebar({
                   if (e.key === "Enter") submitDialog();
                   if (e.key === "Escape") setDialog(null);
                 }}
-                placeholder={dialog.kind === "project" ? "project-name" : "Group name"}
+                placeholder={
+                  dialog.kind === "project" ? "project-name (or empty if cloning)" : "Group name"
+                }
                 className="w-full h-12 rounded-md bg-bg border border-border px-3 text-text text-[15px] outline-none focus:border-accent"
               />
+              {dialog.kind === "project" && (
+                <input
+                  value={cloneUrl}
+                  onChange={(e) => setCloneUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitDialog();
+                    if (e.key === "Escape") setDialog(null);
+                  }}
+                  placeholder="git clone URL (optional)"
+                  className="mt-2 w-full h-12 rounded-md bg-bg border border-border px-3 text-text text-[15px] outline-none focus:border-accent"
+                />
+              )}
               <div className="mt-5 flex gap-4">
                 <button
                   onClick={() => setDialog(null)}
@@ -477,10 +628,12 @@ export function Sidebar({
                 </button>
                 <button
                   onClick={submitDialog}
-                  disabled={!name.trim()}
+                  disabled={
+                    dialog.kind === "group" ? !name.trim() : !name.trim() && !cloneUrl.trim()
+                  }
                   className="flex-1 h-12 rounded-md text-[15px] font-medium bg-accent text-bg transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:pointer-events-none"
                 >
-                  Create
+                  {dialog.kind === "project" && cloneUrl.trim() ? "Clone" : "Create"}
                 </button>
               </div>
             </div>
