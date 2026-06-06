@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   FolderPlus,
@@ -172,52 +173,55 @@ export function Sidebar({
         })}
       </div>
 
-      {/* Custom create-project / create-group modal */}
-      {dialog && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={dialog === "project" ? "New project" : "New group"}
-        >
+      {/* Custom create-project / create-group modal — portaled to <body> so the
+          sidebar's transform/positioning can't clip or offset it (full-screen). */}
+      {dialog &&
+        createPortal(
           <div
-            className="absolute inset-0 bg-black/55"
-            onClick={() => setDialog(null)}
-            aria-hidden="true"
-          />
-          <div className="relative w-full max-w-sm rounded-lg border border-border bg-panel p-5">
-            <h2 className="text-text text-sm font-medium mb-3">
-              {dialog === "project" ? "New project" : "New group"}
-            </h2>
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submitDialog();
-                if (e.key === "Escape") setDialog(null);
-              }}
-              placeholder={dialog === "project" ? "project-name" : "Group name"}
-              className="w-full h-12 rounded-md bg-bg border border-border px-3 text-text text-[15px] outline-none focus:border-accent"
+            className="fixed inset-0 z-40 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label={dialog === "project" ? "New project" : "New group"}
+          >
+            <div
+              className="absolute inset-0 bg-black/55"
+              onClick={() => setDialog(null)}
+              aria-hidden="true"
             />
-            <div className="mt-5 flex gap-4">
-              <button
-                onClick={() => setDialog(null)}
-                className="flex-1 h-12 rounded-md text-[15px] border border-border text-text transition-colors hover:bg-white/5 active:bg-white/10"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitDialog}
-                disabled={!name.trim()}
-                className="flex-1 h-12 rounded-md text-[15px] font-medium bg-accent text-bg transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:pointer-events-none"
-              >
-                Create
-              </button>
+            <div className="relative w-full max-w-sm rounded-lg border border-border bg-panel p-5">
+              <h2 className="text-text text-sm font-medium mb-3">
+                {dialog === "project" ? "New project" : "New group"}
+              </h2>
+              <input
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitDialog();
+                  if (e.key === "Escape") setDialog(null);
+                }}
+                placeholder={dialog === "project" ? "project-name" : "Group name"}
+                className="w-full h-12 rounded-md bg-bg border border-border px-3 text-text text-[15px] outline-none focus:border-accent"
+              />
+              <div className="mt-5 flex gap-4">
+                <button
+                  onClick={() => setDialog(null)}
+                  className="flex-1 h-12 rounded-md text-[15px] border border-border text-text transition-colors hover:bg-white/5 active:bg-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitDialog}
+                  disabled={!name.trim()}
+                  className="flex-1 h-12 rounded-md text-[15px] font-medium bg-accent text-bg transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Create
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
