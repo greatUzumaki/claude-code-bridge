@@ -1,0 +1,20 @@
+# VCS / editor
+.git
+.gitignore
+.DS_Store
+*.swp
+
+# Build outputs (rebuilt inside the image)
+webterm
+web/node_modules
+web/dist
+internal/server/dist
+
+# Local/dev cruft
+*.log
+.env
+.env.*
+coverage
+**/*_test.go
+docs
+deploy
