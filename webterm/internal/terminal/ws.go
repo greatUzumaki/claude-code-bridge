@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"sync"
 
 	"github.com/coder/websocket"
 	"github.com/creack/pty"
@@ -25,9 +26,10 @@ func NewWSHandler(resolve ResolveProject, allowedOrigins []string) *WSHandler {
 }
 
 type ctrlMsg struct {
-	Type string `json:"type"` // "resize"
+	Type string `json:"type"` // "resize" | "ping"
 	Cols uint16 `json:"cols"`
 	Rows uint16 `json:"rows"`
+	T    int64  `json:"t,omitempty"` // client timestamp, echoed back in a "pong"
 }
 
 func (h *WSHandler) Handle(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +44,16 @@ func (h *WSHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	// cancel it from whichever direction ends first so both tear down together.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Serialize all writes: the PTY→client goroutine and the control-message
+	// (pong) path both write, and a coder/websocket Conn allows only one writer
+	// at a time.
+	var wmu sync.Mutex
+	write := func(typ websocket.MessageType, data []byte) error {
+		wmu.Lock()
+		defer wmu.Unlock()
+		return c.Write(ctx, typ, data)
+	}
 
 	q := r.URL.Query()
 	dir, ok := h.resolve(q.Get("project"))
@@ -77,7 +89,7 @@ func (h *WSHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	hdr, _ := json.Marshal(map[string]string{"type": "session", "id": name})
-	_ = c.Write(ctx, websocket.MessageText, hdr)
+	_ = write(websocket.MessageText, hdr)
 
 	// tmux (via PTY) → client
 	go func() {
@@ -86,7 +98,7 @@ func (h *WSHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		for {
 			nr, er := ptmx.Read(buf)
 			if nr > 0 {
-				if ew := c.Write(ctx, websocket.MessageBinary, buf[:nr]); ew != nil {
+				if ew := write(websocket.MessageBinary, buf[:nr]); ew != nil {
 					return
 				}
 			}
@@ -105,8 +117,14 @@ func (h *WSHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 		if typ == websocket.MessageText {
 			var m ctrlMsg
-			if json.Unmarshal(data, &m) == nil && m.Type == "resize" {
-				_ = pty.Setsize(ptmx, &pty.Winsize{Cols: m.Cols, Rows: m.Rows})
+			if json.Unmarshal(data, &m) == nil {
+				switch m.Type {
+				case "resize":
+					_ = pty.Setsize(ptmx, &pty.Winsize{Cols: m.Cols, Rows: m.Rows})
+				case "ping":
+					pong, _ := json.Marshal(map[string]any{"type": "pong", "t": m.T})
+					_ = write(websocket.MessageText, pong)
+				}
 			}
 			continue
 		}

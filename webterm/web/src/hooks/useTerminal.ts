@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import "@xterm/xterm/css/xterm.css";
+import { reportLatency, unreportLatency } from "../lib/latency";
 
 // One live xterm bound to a project's tmux session, with auto-reconnect.
 // tmux handles session persistence and repaint on reconnect — no session id
@@ -31,6 +32,7 @@ function loadFontSize(): number {
 }
 
 export function useTerminal(projectId: string, n: number | undefined, el: HTMLDivElement | null) {
+  const paneId = useId();
   const wsRef = useRef<WebSocket | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -65,6 +67,14 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
 
     let closed = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let pingTimer: ReturnType<typeof setInterval> | null = null;
+
+    const stopPing = () => {
+      if (pingTimer !== null) {
+        clearInterval(pingTimer);
+        pingTimer = null;
+      }
+    };
 
     const connect = () => {
       if (reconnectTimer !== null) {
@@ -79,17 +89,32 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
       );
       wsRef.current = ws;
       ws.binaryType = "arraybuffer";
+      const ping = () => {
+        if (ws.readyState === 1) ws.send(JSON.stringify({ type: "ping", t: Date.now() }));
+      };
       ws.onopen = () => {
         setStatus("open");
+        ping(); // measure immediately, then every 5s
+        stopPing();
+        pingTimer = setInterval(ping, 5000);
       };
       ws.onmessage = (ev) => {
         if (typeof ev.data === "string") {
-          // parse-and-discard informational text frames (e.g. {"type":"session"})
+          // Text frames are control JSON (e.g. {"type":"session"} / {"type":"pong"}).
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === "pong" && typeof msg.t === "number") {
+              reportLatency(paneId, Date.now() - msg.t);
+            }
+          } catch {
+            // ignore malformed control frames
+          }
           return;
         }
         term.write(new Uint8Array(ev.data));
       };
       ws.onclose = () => {
+        stopPing();
         setStatus("closed");
         if (!closed) reconnectTimer = setTimeout(connect, 1000);
       };
@@ -116,6 +141,8 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
+      stopPing();
+      unreportLatency(paneId);
       onDataDisposable.dispose();
       ro.disconnect();
       wsRef.current?.close();
@@ -125,7 +152,7 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
       fitRef.current = null;
       searchAddonRef.current = null;
     };
-  }, [projectId, n, el]);
+  }, [projectId, n, el, paneId]);
 
   // Inject raw bytes to the PTY, then refocus the terminal so typing continues.
   const send = useCallback((data: string) => {
