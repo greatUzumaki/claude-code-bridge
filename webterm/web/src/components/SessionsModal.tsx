@@ -1,36 +1,17 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { X, RefreshCw, Trash2 } from "lucide-react";
-import { api } from "../lib/api";
+import { useTerms, useKillTerm } from "../lib/queries";
 
 export function SessionsModal({ onClose }: { onClose: () => void }) {
-  const [sessions, setSessions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [killing, setKilling] = useState<Record<string, boolean>>({});
+  const { data, isLoading, refetch } = useTerms(true);
+  const sessions = data?.sessions ?? [];
+  const killTerm = useKillTerm();
   const [confirmName, setConfirmName] = useState<string | null>(null);
 
-  const load = () => {
-    setLoading(true);
-    api
-      .listTerms()
-      .then((r) => setSessions(r.sessions ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
-
   const kill = async (name: string) => {
-    setKilling((k) => ({ ...k, [name]: true }));
-    try {
-      await api.killTerm(name);
-    } catch {
-      // ignore
-    }
-    setKilling((k) => ({ ...k, [name]: false }));
-    load();
+    await killTerm.mutateAsync(name);
+    setConfirmName(null);
   };
 
   return createPortal(
@@ -46,7 +27,7 @@ export function SessionsModal({ onClose }: { onClose: () => void }) {
           <h2 className="text-text text-sm font-medium">Terminal sessions</h2>
           <span className="flex items-center gap-1">
             <button
-              onClick={load}
+              onClick={() => refetch()}
               aria-label="Refresh sessions"
               className="flex items-center justify-center rounded w-9 h-9 text-muted hover:bg-white/5 active:bg-white/10"
             >
@@ -63,11 +44,13 @@ export function SessionsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex-1 overflow-y-auto -mx-1">
-          {loading && <div className="px-3 py-4 text-[13px] text-muted text-center">Loading…</div>}
-          {!loading && sessions.length === 0 && (
+          {isLoading && (
+            <div className="px-3 py-4 text-[13px] text-muted text-center">Loading…</div>
+          )}
+          {!isLoading && sessions.length === 0 && (
             <div className="px-3 py-4 text-[13px] text-muted text-center">No active sessions</div>
           )}
-          {!loading &&
+          {!isLoading &&
             sessions.map((name) => (
               <div
                 key={name}
@@ -77,11 +60,8 @@ export function SessionsModal({ onClose }: { onClose: () => void }) {
                 {confirmName === name ? (
                   <span className="shrink-0 flex items-center gap-1">
                     <button
-                      onClick={() => {
-                        setConfirmName(null);
-                        kill(name);
-                      }}
-                      disabled={killing[name]}
+                      onClick={() => kill(name)}
+                      disabled={killTerm.isPending}
                       aria-label={`Confirm kill ${name}`}
                       className="flex items-center justify-center px-3 h-8 rounded text-[13px] font-medium bg-red-500 text-white transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:pointer-events-none"
                     >

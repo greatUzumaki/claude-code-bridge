@@ -64,8 +64,13 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
     fit.fit();
 
     let closed = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
     const connect = () => {
+      if (reconnectTimer !== null) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
       setStatus("connecting");
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const nParam = n != null && n > 0 ? `&n=${n}` : "";
@@ -86,7 +91,7 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
       };
       ws.onclose = () => {
         setStatus("closed");
-        if (!closed) setTimeout(connect, 1000);
+        if (!closed) reconnectTimer = setTimeout(connect, 1000);
       };
     };
     connect();
@@ -107,6 +112,10 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
 
     return () => {
       closed = true;
+      if (reconnectTimer !== null) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
       onDataDisposable.dispose();
       ro.disconnect();
       wsRef.current?.close();

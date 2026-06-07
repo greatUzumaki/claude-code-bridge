@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, Pencil, Save, X } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
@@ -7,6 +7,7 @@ import { python } from "@codemirror/lang-python";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../lib/api";
+import { useFile, useWriteFile } from "../lib/queries";
 
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "avif"]);
 const MD_EXTS = new Set(["md", "markdown"]);
@@ -40,25 +41,49 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
   // Markdown: default to preview mode
   const [mdMode, setMdMode] = useState<"preview" | "edit">("preview");
 
+  // Track the last path whose data we already synced into the buffer so we
+  // never overwrite a dirty buffer with a same-path background re-fetch.
+  const lastSyncedPath = useRef<string | null>(null);
+
+  // Only fetch file contents for non-image kinds.
+  const { data: fileData, isLoading } = useFile(path, kind !== "image");
+  const writeFile = useWriteFile();
+
+  // Fix #2: when path changes, immediately clear the buffer so we never show
+  // or save stale content from the previous file.
   useEffect(() => {
-    if (kind === "image") return; // no file read needed
-    api.readFile(path).then((r) => {
-      setTooLarge(!!r.tooLarge);
-      setValue(r.tooLarge ? "// file too large to display" : (r.content ?? ""));
-      setDirty(false);
-    });
-    // Reset markdown to preview whenever path changes
+    if (kind === "image") return;
+    setValue("");
+    setDirty(false);
+    setTooLarge(false);
     setMdMode("preview");
+    // Reset the synced-path so the data effect will fill the buffer once data arrives.
+    lastSyncedPath.current = null;
   }, [path, kind]);
+
+  // Fix #1: sync fetched content into the buffer only on the first arrival for
+  // this path (tracked via lastSyncedPath). A same-path background re-fetch
+  // will NOT overwrite edits because lastSyncedPath.current === path.
+  useEffect(() => {
+    if (kind === "image") return;
+    if (!fileData) return;
+    if (lastSyncedPath.current === path) return; // already synced; don't clobber edits
+    lastSyncedPath.current = path;
+    setTooLarge(!!fileData.tooLarge);
+    setValue(fileData.tooLarge ? "// file too large to display" : (fileData.content ?? ""));
+    setDirty(false);
+  }, [path, kind, fileData]);
 
   const save = async () => {
     if (tooLarge) return;
-    await api.writeFile(path, value);
+    await writeFile.mutateAsync({ path, content: value });
     setDirty(false);
   };
 
   const filename = path.split("/").pop() ?? path;
-  const canSave = kind !== "image" && !tooLarge;
+  // Fix #2: disable save while data hasn't loaded yet for the current path.
+  const dataReady = !isLoading && fileData !== undefined;
+  const canSave = kind !== "image" && !tooLarge && dataReady;
 
   return (
     <div className="h-full flex flex-col bg-bg">

@@ -52,13 +52,18 @@ export function ProjectTerminals({ projectId }: { projectId: string }) {
     const onEnd = () => {
       two = false;
     };
+    const onCancel = () => {
+      two = false;
+    };
     el.addEventListener("touchstart", onStart, { passive: true });
     el.addEventListener("touchmove", onMove, { passive: false });
     el.addEventListener("touchend", onEnd, { passive: true });
+    el.addEventListener("touchcancel", onCancel, { passive: true });
     return () => {
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onCancel);
     };
   }, []);
 

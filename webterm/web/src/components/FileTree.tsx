@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, File, Folder, Search } from "lucide-react";
-import { api, type FsEntry } from "../lib/api";
+import type { FsEntry } from "../lib/api";
+import { useDir, useSearch } from "../lib/queries";
 
 export function FileTree({
   root,
@@ -12,10 +13,9 @@ export function FileTree({
   onClose: () => void;
 }) {
   const [currentPath, setCurrentPath] = useState(root);
-  const [entries, setEntries] = useState<FsEntry[]>([]);
   const [query, setQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<string[]>([]);
-  const [searching, setSearching] = useState(false);
+  // Debounced query fed into useSearch so the query key only changes after 250 ms of silence.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reset to the project root when switching projects (root prop changes),
@@ -23,39 +23,27 @@ export function FileTree({
   useEffect(() => {
     setCurrentPath(root);
     setQuery("");
-    setSearchResults([]);
+    setDebouncedQuery("");
   }, [root]);
 
-  useEffect(() => {
-    api.listDir(currentPath).then((r) => setEntries(r.entries));
-  }, [currentPath]);
-
-  // Debounced search
+  // 250 ms debounce: update debouncedQuery after user stops typing.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setSearchResults([]);
-      setSearching(false);
-      return;
-    }
-
-    setSearching(true);
     debounceRef.current = setTimeout(() => {
-      api
-        .searchFiles(root, trimmed)
-        .then((r) => {
-          setSearchResults(r.matches);
-        })
-        .catch(() => setSearchResults([]))
-        .finally(() => setSearching(false));
+      setDebouncedQuery(query);
     }, 250);
-
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, root]);
+  }, [query]);
+
+  const { data: dirData } = useDir(currentPath);
+  const entries: FsEntry[] = dirData?.entries ?? [];
+
+  const isSearching = query.trim().length > 0;
+  // isFetching is true while TanStack Query is in-flight for the current debouncedQuery.
+  const { data: searchData, isFetching: searching } = useSearch(root, debouncedQuery);
+  const searchResults: string[] = searchData?.matches ?? [];
 
   const handleEntry = (e: FsEntry) => {
     if (e.dir) {
@@ -73,8 +61,6 @@ export function FileTree({
 
   const displayPath =
     (currentPath.startsWith(root) ? currentPath.slice(root.length) : currentPath) || "/";
-
-  const isSearching = query.trim().length > 0;
 
   return (
     <div className="h-full w-full flex flex-col text-sm bg-panel border-r border-border">

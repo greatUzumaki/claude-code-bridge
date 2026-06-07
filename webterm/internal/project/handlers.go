@@ -51,15 +51,35 @@ func (s *Store) Register(mux *http.ServeMux) {
 			httpErr(w, 400, "url is required")
 			return
 		}
+		// Validate URL before any use: reject dangerous transports and flag-like inputs.
+		if strings.HasPrefix(b.URL, "-") {
+			httpErr(w, 400, "invalid url")
+			return
+		}
+		if strings.Contains(b.URL, "::") {
+			httpErr(w, 400, "invalid url")
+			return
+		}
+		parsedURL, urlErr := url.Parse(b.URL)
+		if urlErr != nil {
+			httpErr(w, 400, "invalid url")
+			return
+		}
+		switch parsedURL.Scheme {
+		case "https", "http", "ssh", "git":
+			// allowed
+		default:
+			httpErr(w, 400, "invalid url: scheme must be https, http, ssh, or git")
+			return
+		}
 		// Derive name from URL if not provided.
 		name := b.Name
 		if name == "" {
-			u, err := url.Parse(b.URL)
-			if err != nil || u.Path == "" {
+			if parsedURL.Path == "" {
 				httpErr(w, 400, "cannot derive name from url")
 				return
 			}
-			seg := filepath.Base(u.Path)
+			seg := filepath.Base(parsedURL.Path)
 			seg = strings.TrimSuffix(seg, ".git")
 			name = seg
 		}
@@ -75,7 +95,10 @@ func (s *Store) Register(mux *http.ServeMux) {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "git", "clone", b.URL, abs)
+		cmd := exec.CommandContext(ctx, "git",
+			"-c", "protocol.ext.allow=never",
+			"-c", "protocol.file.allow=never",
+			"clone", "--", b.URL, abs)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			var exitErr *exec.ExitError

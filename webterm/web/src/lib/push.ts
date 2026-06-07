@@ -11,7 +11,13 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 
 /** True when the browser supports the Web Push stack. */
 export function pushSupported(): boolean {
-  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  // Push requires a secure context (HTTPS or localhost) in addition to API presence.
+  return (
+    !!window.isSecureContext &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window &&
+    "Notification" in window
+  );
 }
 
 /** Current notification permission, or "unsupported" if the API is absent. */
@@ -40,6 +46,7 @@ export async function enablePush(): Promise<boolean> {
 
   // Fetch the VAPID public key from the backend.
   const res = await fetch("/api/push/vapid");
+  if (!res.ok) return false;
   const { publicKey } = (await res.json()) as { publicKey: string };
 
   const reg = await navigator.serviceWorker.ready;
@@ -48,11 +55,12 @@ export async function enablePush(): Promise<boolean> {
     applicationServerKey: urlBase64ToUint8Array(publicKey),
   });
 
-  await fetch("/api/push/subscribe", {
+  const subRes = await fetch("/api/push/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(subscription.toJSON()),
   });
+  if (!subRes.ok) return false;
 
   return true;
 }

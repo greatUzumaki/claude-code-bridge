@@ -49,6 +49,9 @@ func (a *API) gitStatus(w http.ResponseWriter, r *http.Request) {
 		status gitProjectStatus
 	}
 
+	const gitConcurrency = 6
+	sem := make(chan struct{}, gitConcurrency)
+
 	results := make([]result, len(lay.Projects))
 	var wg sync.WaitGroup
 	for i, p := range lay.Projects {
@@ -61,6 +64,8 @@ func (a *API) gitStatus(w http.ResponseWriter, r *http.Request) {
 				results[idx] = res
 				return
 			}
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 			defer cancel()
 

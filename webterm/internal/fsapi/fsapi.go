@@ -120,14 +120,24 @@ func (a *API) search(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	const maxVisited = 50000
 	qLower := strings.ToLower(q)
 	var matches []string
+	visited := 0
 	_ = filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
+		// Stop early if the request has been cancelled.
+		if r.Context().Err() != nil {
+			return filepath.SkipAll
+		}
 		if d.IsDir() && searchSkipDirs[d.Name()] {
 			return filepath.SkipDir
+		}
+		visited++
+		if visited > maxVisited {
+			return filepath.SkipAll
 		}
 		if !d.IsDir() && strings.Contains(strings.ToLower(d.Name()), qLower) {
 			rel, rerr := filepath.Rel(abs, path)

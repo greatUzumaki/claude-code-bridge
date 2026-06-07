@@ -10,7 +10,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -173,6 +175,12 @@ func (m *Manager) Notify(title, body, sessionKey string) {
 		return
 	}
 	m.lastNotify[sessionKey] = time.Now()
+	// Prune stale entries to keep the map from growing unbounded.
+	for k, t := range m.lastNotify {
+		if time.Since(t) > 60*time.Second {
+			delete(m.lastNotify, k)
+		}
+	}
 
 	// Copy subscription slice so we can release the lock during HTTP calls.
 	subs := make([]webpush.Subscription, len(m.subs))
@@ -201,6 +209,7 @@ func (m *Manager) Notify(title, body, sessionKey string) {
 			VAPIDPublicKey:  m.cfg.PublicKey,
 			VAPIDPrivateKey: m.cfg.PrivateKey,
 			TTL:             60,
+			HTTPClient:      &http.Client{Timeout: 5 * time.Second},
 		})
 		if err != nil {
 			log.Printf("push: send to %s: %v", sub.Endpoint, err)
@@ -255,10 +264,33 @@ func (m *Manager) handleVAPID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"publicKey": m.PublicKey()})
 }
 
+// validateEndpoint returns an error string if the push endpoint URL is
+// not a safe public HTTPS destination (blocks SSRF to internal hosts).
+func validateEndpoint(endpoint string) string {
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Scheme != "https" {
+		return "endpoint must be an https URL"
+	}
+	host := u.Hostname()
+	if host == "localhost" {
+		return "endpoint host not allowed"
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+			return "endpoint host not allowed"
+		}
+	}
+	return ""
+}
+
 func (m *Manager) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	var sub webpush.Subscription
 	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if msg := validateEndpoint(sub.Endpoint); msg != "" {
+		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 	m.Subscribe(sub)

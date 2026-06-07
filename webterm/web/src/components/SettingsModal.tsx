@@ -39,6 +39,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const permission = pushPermission();
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supported) return;
@@ -52,17 +53,21 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const handlePushToggle = async () => {
     if (pushBusy) return;
     setPushBusy(true);
+    setPushError(null);
     try {
       if (pushOn) {
         await disablePush();
-        setPushOn(false);
       } else {
         const ok = await enablePush();
-        if (ok) setPushOn(true);
+        if (!ok) setPushError("Failed to enable push notifications.");
       }
-    } catch {
-      /* revert on failure — state stays unchanged */
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : "Unknown error.");
     } finally {
+      // Always re-sync toggle state from ground truth to avoid desync.
+      isSubscribed()
+        .then(setPushOn)
+        .catch(() => {});
       setPushBusy(false);
     }
   };
@@ -237,6 +242,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               </span>
               <span>{pushOn ? "On" : "Off"}</span>
             </button>
+          )}
+          {pushError && (
+            <p className="mt-1 text-[12px] text-red-400 leading-relaxed">{pushError}</p>
           )}
           <p className="mt-2 text-[12px] text-muted leading-relaxed">
             iOS: works only as an installed PWA (Add to Home Screen). Requires HTTPS.

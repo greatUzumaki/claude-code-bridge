@@ -1,7 +1,12 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute } from "workbox-precaching";
+import { clientsClaim } from "workbox-core";
 
 declare const self: ServiceWorkerGlobalScope;
+
+// Activate the new SW immediately without waiting for all tabs to close.
+self.skipWaiting();
+clientsClaim();
 
 precacheAndRoute(self.__WB_MANIFEST);
 

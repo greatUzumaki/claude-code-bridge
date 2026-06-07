@@ -1,26 +1,10 @@
-import { useEffect, useState } from "react";
-import { api } from "../lib/api";
 import { useAggregateConn } from "../lib/connStatus";
-
-type HostStats = { cpuPercent: number; memPercent: number; load1: number };
+import { useHostStats } from "../lib/queries";
 
 // Compact header cluster: host CPU/MEM/load + aggregated connection dot.
 export function HeaderStatus() {
   const conn = useAggregateConn();
-  const [stats, setStats] = useState<HostStats | null>(null);
-
-  useEffect(() => {
-    const fetchStats = () =>
-      api
-        .hostStats()
-        .then((s) =>
-          setStats({ cpuPercent: s.cpuPercent, memPercent: s.memPercent, load1: s.load1 }),
-        )
-        .catch(() => {});
-    fetchStats();
-    const t = setInterval(fetchStats, 4000);
-    return () => clearInterval(t);
-  }, []);
+  const { data: stats } = useHostStats();
 
   const dot =
     conn === "open" ? "bg-green-500" : conn === "connecting" ? "bg-amber-500" : "bg-red-500";

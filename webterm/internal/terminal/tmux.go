@@ -5,11 +5,19 @@ package terminal
 
 import (
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 )
 
 const sessionPrefix = "wt_"
+
+// safeSessionName is the hard allowlist for any session name whose #{session_name}
+// gets interpolated into the NotifyHook shell command. SessionName already maps
+// everything outside [A-Za-z0-9_] to '_', so names are shell- and URL-safe; this
+// regexp enforces that invariant at the injection-sensitive call site so a future
+// change to SessionName (or a raw caller) cannot reopen command injection.
+var safeSessionName = regexp.MustCompile(`^wt_[A-Za-z0-9_]+$`)
 
 // NotifyHook, when non-empty, is installed on each tmux session as an
 // alert-silence and alert-bell hook. Server sets this at startup.
@@ -61,8 +69,9 @@ func ensure(name, dir string) error {
 	// monitor-silence 20 triggers alert-silence after 20 s of no output.
 	// monitor-bell triggers alert-bell on a terminal BEL character.
 	// The hook command is passed as a single argv element; tmux expands
-	// #{session_name} internally before handing the string to the shell.
-	if NotifyHook != "" {
+	// #{session_name} internally before handing the string to the shell — so the
+	// session name must be allowlist-safe (no shell/quote metacharacters).
+	if NotifyHook != "" && safeSessionName.MatchString(name) {
 		_ = exec.Command("tmux", "set-window-option", "-t", name, "monitor-silence", "20").Run()
 		_ = exec.Command("tmux", "set-window-option", "-t", name, "monitor-bell", "on").Run()
 		_ = exec.Command("tmux", "set-hook", "-t", name, "alert-silence", NotifyHook).Run()

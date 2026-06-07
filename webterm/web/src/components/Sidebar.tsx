@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useRef, useState, type DragEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -19,10 +19,19 @@ import {
   GitBranch,
   MonitorPlay,
 } from "lucide-react";
-import { api } from "../lib/api";
-import { buildTree, type Layout, type Project } from "../lib/grouping";
+import { buildTree, type Project } from "../lib/grouping";
 import { SettingsModal } from "./SettingsModal";
 import { SessionsModal } from "./SessionsModal";
+import {
+  useProjects,
+  useGitStatus,
+  useCreateProject,
+  useCloneProject,
+  useCreateGroup,
+  useMoveProject,
+  useRenameGroup,
+  useDeleteGroup,
+} from "../lib/queries";
 
 type Dialog = null | { kind: "project" } | { kind: "group" };
 
@@ -39,7 +48,11 @@ function loadPins(): string[] {
   }
 }
 function savePins(ids: string[]) {
-  localStorage.setItem(PINS_KEY, JSON.stringify(ids));
+  try {
+    localStorage.setItem(PINS_KEY, JSON.stringify(ids));
+  } catch {
+    /* quota exceeded or private mode — pins won't persist, but rendering is unaffected */
+  }
 }
 
 export function Sidebar({
@@ -57,7 +70,6 @@ export function Sidebar({
   multi?: boolean;
   onToggleMulti?: () => void;
 }) {
-  const [layout, setLayout] = useState<Layout>({ groups: [], projects: [] });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [dialog, setDialog] = useState<Dialog>(null);
   const [name, setName] = useState("");
@@ -73,31 +85,22 @@ export function Sidebar({
   const [dropTarget, setDropTarget] = useState<string | null>(null); // "" = ungrouped
 
   // ── Feature state ──────────────────────────────────────────────────────────
-  const [gitStatuses, setGitStatuses] = useState<Record<string, GitInfo>>({});
   const [pins, setPins] = useState<string[]>(loadPins);
 
-  const refresh = () => api.listProjects().then(setLayout);
-  useEffect(() => {
-    localStorage.removeItem("webterm_recent"); // legacy: Recent section removed
-    refresh();
-    // Poll active sessions every 5s (#20)
-    const t = setInterval(() => {
-      refresh().catch(() => {});
-    }, 5000);
-    return () => clearInterval(t);
-  }, []);
+  // ── Data ──────────────────────────────────────────────────────────────────
+  const { data: projectsData } = useProjects();
+  const layout = projectsData ?? { groups: [], projects: [] };
 
-  // Git status fetch + poll every 15s (#36)
-  useEffect(() => {
-    const fetchGit = () =>
-      api
-        .gitStatus()
-        .then((r) => setGitStatuses(r.statuses))
-        .catch(() => {});
-    fetchGit();
-    const t = setInterval(fetchGit, 15000);
-    return () => clearInterval(t);
-  }, []);
+  const { data: gitData } = useGitStatus();
+  const gitStatuses: Record<string, GitInfo> = gitData?.statuses ?? {};
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const createProject = useCreateProject();
+  const cloneProject = useCloneProject();
+  const createGroup = useCreateGroup();
+  const moveProject = useMoveProject();
+  const renameGroup = useRenameGroup();
+  const deleteGroup = useDeleteGroup();
 
   const tree = buildTree(layout);
 
@@ -112,17 +115,16 @@ export function Sidebar({
     const n = name.trim();
     if (dialog.kind === "group") {
       if (!n) return;
-      await api.createGroup(n);
+      await createGroup.mutateAsync(n);
     } else {
       const url = cloneUrl.trim();
-      if (url) await api.cloneProject(url, n || undefined);
-      else if (n) await api.createProject(n);
+      if (url) await cloneProject.mutateAsync({ url, name: n || undefined });
+      else if (n) await createProject.mutateAsync({ name: n });
       else return;
     }
     setDialog(null);
     setName("");
     setCloneUrl("");
-    refresh();
   };
 
   const toggleGroup = (id: string) => setCollapsed((p) => ({ ...p, [id]: !p[id] }));
@@ -140,8 +142,7 @@ export function Sidebar({
 
   // ── Move (used by drag + group-settings toggles) ──────────────────────────
   const moveTo = async (projectId: string, groupId: string) => {
-    await api.moveProject(projectId, groupId, 0);
-    refresh();
+    await moveProject.mutateAsync({ projectId, groupId, order: 0 });
   };
 
   // ── Group settings ────────────────────────────────────────────────────────
@@ -152,16 +153,14 @@ export function Sidebar({
   const saveGroupName = async () => {
     const n = settingsName.trim();
     if (settingsGroup && n) {
-      await api.renameGroup(settingsGroup, n);
-      refresh();
+      await renameGroup.mutateAsync({ groupId: settingsGroup, name: n });
     }
   };
   const deleteSettingsGroup = async () => {
     if (!settingsGroup) return;
     if (!window.confirm("Delete this group? Its projects become ungrouped.")) return;
-    await api.deleteGroup(settingsGroup);
+    await deleteGroup.mutateAsync(settingsGroup);
     setSettingsGroup(null);
-    refresh();
   };
 
   // ── Drag handlers ─────────────────────────────────────────────────────────
