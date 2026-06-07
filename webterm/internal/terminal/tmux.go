@@ -28,6 +28,10 @@ var safeSessionName = regexp.MustCompile(`^wt_[A-Za-z0-9_]+$`)
 // tmux expands #{session_name} before executing the shell command.
 var NotifyHook string
 
+// SilenceSeconds is the number of seconds of terminal inactivity that trigger
+// the alert-silence hook. Defaults to 20; set by the server from --silence-seconds.
+var SilenceSeconds = 20
+
 // Available reports whether tmux is installed on the host.
 func Available() bool {
 	_, err := exec.LookPath("tmux")
@@ -72,7 +76,7 @@ func ensure(name, dir string) error {
 	// #{session_name} internally before handing the string to the shell — so the
 	// session name must be allowlist-safe (no shell/quote metacharacters).
 	if NotifyHook != "" && safeSessionName.MatchString(name) {
-		_ = exec.Command("tmux", "set-window-option", "-t", name, "monitor-silence", "20").Run()
+		_ = exec.Command("tmux", "set-window-option", "-t", name, "monitor-silence", strconv.Itoa(SilenceSeconds)).Run()
 		_ = exec.Command("tmux", "set-window-option", "-t", name, "monitor-bell", "on").Run()
 		_ = exec.Command("tmux", "set-hook", "-t", name, "alert-silence", NotifyHook).Run()
 		_ = exec.Command("tmux", "set-hook", "-t", name, "alert-bell", NotifyHook).Run()

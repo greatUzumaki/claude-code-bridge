@@ -19,17 +19,18 @@ func splitComma(s string) []string {
 }
 
 func main() {
-	addr    := flag.String("addr", "127.0.0.1:7070", "listen address (localhost by default — DO NOT bind public without auth+TLS)")
-	root    := flag.String("root", ".", "root directory for projects/files")
-	token   := flag.String("token", os.Getenv("WEBTERM_TOKEN"), "auth token; empty disables auth")
-	origins := flag.String("allowed-origins", "", "comma-separated WS Origin host patterns; empty = strict same-origin. Set to your domain behind a TLS proxy.")
+	addr           := flag.String("addr", "127.0.0.1:7070", "listen address (localhost by default — DO NOT bind public without auth+TLS)")
+	root           := flag.String("root", ".", "root directory for projects/files")
+	token          := flag.String("token", os.Getenv("WEBTERM_TOKEN"), "auth token; empty disables auth")
+	origins        := flag.String("allowed-origins", "", "comma-separated WS Origin host patterns; empty = strict same-origin. Set to your domain behind a TLS proxy.")
+	silenceSecs    := flag.Int("silence-seconds", 20, "seconds of terminal inactivity before a silence notification fires (tmux monitor-silence)")
 	flag.Parse()
 
 	if !terminal.Available() {
 		log.Println("WARNING: tmux not found on PATH — terminals will not work. Install tmux (apt/brew install tmux).")
 	}
 
-	s := server.New(server.Config{Addr: *addr, Root: *root, Token: *token, AllowedOrigins: splitComma(*origins)})
+	s := server.New(server.Config{Addr: *addr, Root: *root, Token: *token, AllowedOrigins: splitComma(*origins), SilenceSeconds: *silenceSecs})
 	log.Printf("WebTerm listening on http://%s (root=%s, auth=%v)", *addr, *root, *token != "")
 	if err := http.ListenAndServe(*addr, s.Handler()); err != nil {
 		log.Fatal(err)

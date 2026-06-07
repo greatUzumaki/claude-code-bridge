@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute } from "workbox-precaching";
 import { clientsClaim } from "workbox-core";
+import { isInQuietWindow } from "./lib/quietWindow";
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -9,6 +10,23 @@ self.skipWaiting();
 clientsClaim();
 
 precacheAndRoute(self.__WB_MANIFEST);
+
+type NotifPrefs = {
+  mute: boolean;
+  quietEnabled: boolean;
+  quietFrom: string;
+  quietTo: string;
+};
+
+/** Read notification prefs written by notifPrefs.ts via the Cache API. */
+async function readPrefs(): Promise<NotifPrefs | null> {
+  try {
+    const r = await caches.match("/__notif_prefs");
+    return r ? ((await r.json()) as NotifPrefs) : null;
+  } catch {
+    return null;
+  }
+}
 
 self.addEventListener("push", (event: PushEvent) => {
   let data: { title?: string; body?: string; tag?: string } = {};
@@ -23,6 +41,16 @@ self.addEventListener("push", (event: PushEvent) => {
       const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const focused = wins.some((c) => c.focused || c.visibilityState === "visible");
       if (focused) return; // user is looking — don't interrupt
+
+      // Enforce client-side notification prefs.
+      const prefs = await readPrefs();
+      if (prefs?.mute) return;
+      if (prefs?.quietEnabled) {
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        if (isInQuietWindow(prefs.quietFrom, prefs.quietTo, nowMinutes)) return;
+      }
+
       await self.registration.showNotification(title, {
         body: data.body || "",
         tag: data.tag,

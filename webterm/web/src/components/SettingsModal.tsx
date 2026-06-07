@@ -249,6 +249,81 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <p className="mt-2 text-[12px] text-muted leading-relaxed">
             iOS: works only as an installed PWA (Add to Home Screen). Requires HTTPS.
           </p>
+
+          {/* Mute all notifications */}
+          <button
+            onClick={() => update({ notif: { ...settings.notif, mute: !settings.notif.mute } })}
+            role="switch"
+            aria-checked={settings.notif.mute}
+            aria-label="Mute notifications"
+            className="flex items-center gap-3 min-h-11 text-[14px] text-text mt-1"
+          >
+            <span
+              className={[
+                "relative inline-flex shrink-0 w-11 h-6 rounded-full transition-colors",
+                settings.notif.mute ? "bg-accent" : "bg-border",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                  settings.notif.mute ? "translate-x-6" : "translate-x-1",
+                ].join(" ")}
+              />
+            </span>
+            <span>Mute notifications</span>
+          </button>
+
+          {/* Quiet hours */}
+          <button
+            onClick={() =>
+              update({ notif: { ...settings.notif, quietEnabled: !settings.notif.quietEnabled } })
+            }
+            role="switch"
+            aria-checked={settings.notif.quietEnabled}
+            aria-label="Quiet hours"
+            className="flex items-center gap-3 min-h-11 text-[14px] text-text"
+          >
+            <span
+              className={[
+                "relative inline-flex shrink-0 w-11 h-6 rounded-full transition-colors",
+                settings.notif.quietEnabled ? "bg-accent" : "bg-border",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                  settings.notif.quietEnabled ? "translate-x-6" : "translate-x-1",
+                ].join(" ")}
+              />
+            </span>
+            <span>Quiet hours</span>
+          </button>
+
+          {settings.notif.quietEnabled && (
+            <div className="flex items-center gap-3 mt-1 pl-1">
+              <label className="text-[13px] text-muted shrink-0">From</label>
+              <input
+                type="time"
+                value={settings.notif.quietFrom}
+                onChange={(e) =>
+                  update({ notif: { ...settings.notif, quietFrom: e.target.value } })
+                }
+                className="min-h-9 rounded border border-border bg-panel text-text text-[13px] px-2 focus:outline-none focus:border-accent"
+              />
+              <label className="text-[13px] text-muted shrink-0">To</label>
+              <input
+                type="time"
+                value={settings.notif.quietTo}
+                onChange={(e) => update({ notif: { ...settings.notif, quietTo: e.target.value } })}
+                className="min-h-9 rounded border border-border bg-panel text-text text-[13px] px-2 focus:outline-none focus:border-accent"
+              />
+            </div>
+          )}
+
+          <p className="mt-2 text-[12px] text-muted leading-relaxed">
+            Silence threshold is set on the server (--silence-seconds).
+          </p>
         </div>
       </div>
     </div>,

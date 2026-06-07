@@ -19,6 +19,7 @@ type Config struct {
 	Root           string
 	Token          string   // empty = auth disabled (seam no-op)
 	AllowedOrigins []string // WS Origin host patterns; nil = strict same-origin
+	SilenceSeconds int      // tmux monitor-silence threshold; <= 0 keeps the default
 }
 
 type Server struct {
@@ -34,6 +35,11 @@ func New(cfg Config) *Server {
 		jail:  pathjail.New(cfg.Root),
 		mux:   http.NewServeMux(),
 		store: project.NewStore(cfg.Root),
+	}
+
+	// Apply the configurable silence threshold (guard: <= 0 keeps the package default).
+	if cfg.SilenceSeconds > 0 {
+		terminal.SilenceSeconds = cfg.SilenceSeconds
 	}
 
 	// Set up Web Push manager; failures are non-fatal.

@@ -1,10 +1,26 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { syncNotifPrefs } from "./notifPrefs";
+
+export type NotifSettings = {
+  mute: boolean;
+  quietEnabled: boolean;
+  quietFrom: string;
+  quietTo: string;
+};
 
 export type Settings = {
   theme: "dark" | "light";
   accent: string;
   haptics: boolean;
   keys: string[];
+  notif: NotifSettings;
+};
+
+const NOTIF_DEFAULTS: NotifSettings = {
+  mute: false,
+  quietEnabled: false,
+  quietFrom: "22:00",
+  quietTo: "08:00",
 };
 
 const DEFAULTS: Settings = {
@@ -12,6 +28,7 @@ const DEFAULTS: Settings = {
   accent: "#5b9dd9",
   haptics: true,
   keys: ["esc", "tab", "enter", "ctrlc", "left", "up", "down", "right"],
+  notif: NOTIF_DEFAULTS,
 };
 
 const STORAGE_KEY = "webterm_settings";
@@ -21,7 +38,13 @@ function load(): Settings {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Settings>;
-      return { ...DEFAULTS, ...parsed };
+      return {
+        ...DEFAULTS,
+        ...parsed,
+        // Merge notif sub-object so older stored data missing `notif` still
+        // gets the correct defaults rather than being overwritten by undefined.
+        notif: parsed.notif ? { ...NOTIF_DEFAULTS, ...parsed.notif } : { ...NOTIF_DEFAULTS },
+      };
     }
   } catch {
     // ignore parse errors
@@ -78,6 +101,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     applyTheme(settings);
   }, [settings]);
+
+  // Keep service-worker notif prefs in the Cache API in sync.
+  useEffect(() => {
+    void syncNotifPrefs(settings.notif);
+  }, [settings.notif]);
 
   const update = useCallback((partial: Partial<Settings>) => {
     setSettings((prev) => {

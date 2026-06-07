@@ -6,6 +6,7 @@ import { FileTree } from "./components/FileTree";
 import { EditorPane } from "./components/EditorPane";
 import { MultiScreen } from "./components/MultiScreen";
 import { HeaderStatus } from "./components/HeaderStatus";
+import { ConnectionBanner } from "./components/ConnectionBanner";
 import type { Project } from "./lib/grouping";
 import { useWakeLock } from "./hooks/useWakeLock";
 
@@ -122,6 +123,8 @@ export default function App() {
           <span className="flex-1" />
           <HeaderStatus />
         </div>
+
+        <ConnectionBanner />
 
         {/* Main content: multiscreen grid, or terminal / editor */}
         <div className="flex-1 min-h-0 relative">
