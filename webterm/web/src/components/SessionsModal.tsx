@@ -8,10 +8,22 @@ export function SessionsModal({ onClose }: { onClose: () => void }) {
   const sessions = data?.sessions ?? [];
   const killTerm = useKillTerm();
   const [confirmName, setConfirmName] = useState<string | null>(null);
+  const [confirmAll, setConfirmAll] = useState(false);
 
   const kill = async (name: string) => {
     await killTerm.mutateAsync(name);
     setConfirmName(null);
+  };
+
+  const killAll = async () => {
+    for (const name of sessions) {
+      try {
+        await killTerm.mutateAsync(name);
+      } catch {
+        // ignore individual failures; keep going
+      }
+    }
+    setConfirmAll(false);
   };
 
   return createPortal(
@@ -87,6 +99,35 @@ export function SessionsModal({ onClose }: { onClose: () => void }) {
               </div>
             ))}
         </div>
+
+        {sessions.length > 0 && (
+          <div className="shrink-0 pt-3 mt-1 border-t border-border">
+            {confirmAll ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={killAll}
+                  disabled={killTerm.isPending}
+                  className="flex-1 h-10 rounded text-[13px] font-medium bg-red-500 text-white transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Kill all {sessions.length}
+                </button>
+                <button
+                  onClick={() => setConfirmAll(false)}
+                  className="flex-1 h-10 rounded text-[13px] text-muted border border-border hover:bg-white/5 active:bg-white/10"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmAll(true)}
+                className="w-full h-10 rounded text-[13px] text-red-400 border border-border transition-colors hover:bg-red-500/10 active:bg-red-500/15 flex items-center justify-center gap-1.5"
+              >
+                <Trash2 size={14} /> Kill all sessions
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>,
     document.body,
