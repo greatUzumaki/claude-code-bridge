@@ -19,6 +19,10 @@ export const api = {
     fetch("/api/projects/create", jsonInit("POST", { name, groupId, gitInit })).then(j),
   moveProject: (projectId: string, groupId: string, order: number) =>
     fetch("/api/projects/move", jsonInit("POST", { projectId, groupId, order })).then(j),
+  deleteProject: (projectId: string) =>
+    fetch(`/api/projects/delete?projectId=${encodeURIComponent(projectId)}`, {
+      method: "DELETE",
+    }).then(j),
   createGroup: (name: string) => fetch("/api/groups/create", jsonInit("POST", { name })).then(j),
   renameGroup: (groupId: string, name: string) =>
     fetch("/api/groups/rename", jsonInit("POST", { groupId, name })).then(j),
@@ -75,6 +79,46 @@ export const api = {
         load1: number;
       }>,
     ),
+
+  listContainers: (): Promise<{ available: boolean; error?: string; containers: DockerContainer[] }> =>
+    fetch("/api/docker/ps").then(
+      j<{ available: boolean; error?: string; containers: DockerContainer[] }>,
+    ),
+
+  dockerAction: (id: string, action: "start" | "stop" | "restart") =>
+    fetch("/api/docker/action", jsonInit("POST", { id, action })).then(j),
+
+  listProcesses: (): Promise<{ processes: ProcInfo[]; listening: ListenPort[] }> =>
+    fetch("/api/sys/processes").then(j<{ processes: ProcInfo[]; listening: ListenPort[] }>),
+  killProcess: (pid: number, signal?: "KILL") =>
+    fetch(
+      `/api/sys/kill?pid=${encodeURIComponent(pid)}${signal ? `&signal=${signal}` : ""}`,
+      { method: "POST" },
+    ).then(j),
 };
 
 export type FsEntry = { name: string; dir: boolean; size: number; mtime: number };
+
+// `docker ps --format '{{json .}}'` emits capitalised field names.
+export type DockerContainer = {
+  ID: string;
+  Names: string;
+  Image: string;
+  State: string;
+  Status: string;
+  Ports: string;
+  CreatedAt: string;
+  RunningFor?: string;
+};
+
+export type ProcInfo = {
+  pid: number;
+  name: string;
+  user: string;
+  cpu: number;
+  memMB: number;
+  cmd: string;
+  ports?: number[];
+};
+
+export type ListenPort = { port: number; pid: number; name: string };

@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { syncNotifPrefs } from "./notifPrefs";
+import { SettingsContext } from "./settingsContext";
 
 export type NotifSettings = {
   mute: boolean;
@@ -88,13 +89,6 @@ function applyTheme(settings: Settings) {
   el.style.setProperty("--color-accent", settings.accent);
 }
 
-type SettingsContextValue = {
-  settings: Settings;
-  update: (partial: Partial<Settings>) => void;
-};
-
-const SettingsContext = createContext<SettingsContextValue | null>(null);
-
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(load);
 
@@ -116,10 +110,4 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return <SettingsContext value={{ settings, update }}>{children}</SettingsContext>;
-}
-
-export function useSettings(): SettingsContextValue {
-  const ctx = useContext(SettingsContext);
-  if (!ctx) throw new Error("useSettings must be used inside SettingsProvider");
-  return ctx;
 }

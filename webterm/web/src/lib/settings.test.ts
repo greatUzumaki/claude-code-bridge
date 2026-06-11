@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import React from "react";
-import { SettingsProvider, useSettings } from "./settings";
+import { SettingsProvider } from "./settings";
+import { useSettings } from "./settingsContext";
 
 const STORAGE_KEY = "webterm_settings";
 

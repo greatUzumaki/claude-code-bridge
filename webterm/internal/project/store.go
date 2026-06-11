@@ -216,6 +216,48 @@ func (s *Store) CreateProject(name, groupID string, gitInit bool) (Project, erro
 	return p, s.save(lay)
 }
 
+// DeleteProject removes a project's folder from disk and its layout entry.
+// It is destructive (recursive delete), so the target is guarded: it must be a
+// real descendant of root — lexically and after resolving symlinks — and never
+// root itself or the .webterm metadata dir. Killing tmux sessions is the caller's
+// job (the handler), keeping this method free of the terminal dependency.
+func (s *Store) DeleteProject(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	lay := s.load()
+	idx := -1
+	for i := range lay.Projects {
+		if lay.Projects[i].ID == id {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return errors.New("project not found")
+	}
+	abs, err := filepath.Abs(filepath.Join(s.root, lay.Projects[idx].Path))
+	if err != nil || !s.withinRoot(abs) || abs == s.root {
+		return errors.New("invalid project path")
+	}
+	if filepath.Base(abs) == ".webterm" {
+		return errors.New("refusing to delete metadata directory")
+	}
+	// Re-check containment after resolving symlinks: this delete is recursive, so
+	// a symlinked component must not let it escape root (compare resolved-to-resolved
+	// since root itself may live under a symlink).
+	resolved, rerr := filepath.EvalSymlinks(abs)
+	rootResolved, rrerr := filepath.EvalSymlinks(s.root)
+	if rerr != nil || rrerr != nil ||
+		(resolved != rootResolved && !strings.HasPrefix(resolved, rootResolved+string(os.PathSeparator))) {
+		return errors.New("invalid project path")
+	}
+	if err := os.RemoveAll(abs); err != nil {
+		return err
+	}
+	lay.Projects = append(lay.Projects[:idx], lay.Projects[idx+1:]...)
+	return s.save(lay)
+}
+
 // ProjectPath returns the absolute path for a project id (for terminal cwd).
 func (s *Store) ProjectPath(id string) (string, bool) {
 	s.mu.Lock()

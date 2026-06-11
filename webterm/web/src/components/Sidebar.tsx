@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useState, type DragEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -22,6 +22,7 @@ import {
 import { buildTree, type Project } from "../lib/grouping";
 import { SettingsModal } from "./SettingsModal";
 import { SessionsModal } from "./SessionsModal";
+import { DeleteProjectModal } from "./DeleteProjectModal";
 import {
   useProjects,
   useGitStatus,
@@ -78,8 +79,12 @@ export function Sidebar({
   const [settingsName, setSettingsName] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreBtnRef = useRef<HTMLButtonElement>(null);
+  const [deleteProj, setDeleteProj] = useState<Project | null>(null);
+  // Per-project actions menu: the project + the screen position to anchor to.
+  const [rowMenu, setRowMenu] = useState<{ p: Project; x: number; y: number } | null>(null);
+  // Header "more" menu: anchor position captured at click time (avoids reading a
+  // ref during render).
+  const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
   // Desktop drag-and-drop: which project is being dragged, which group is hovered.
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null); // "" = ungrouped
@@ -188,7 +193,6 @@ export function Sidebar({
   // ── Project row ───────────────────────────────────────────────────────────
   const row = (p: Project) => {
     const isActive = p.id === activeId;
-    const isPinned = pins.includes(p.id);
     const gitInfo = gitStatuses[p.id];
 
     return (
@@ -248,32 +252,18 @@ export function Sidebar({
           </span>
         )}
 
-        {/* Pin button (#42) */}
+        {/* Single actions menu — pin / view files / delete */}
         <button
           onClick={(e) => {
             e.stopPropagation();
-            togglePin(p.id);
+            const r = e.currentTarget.getBoundingClientRect();
+            setRowMenu({ p, x: r.right, y: r.bottom });
           }}
-          aria-label={isPinned ? "Unpin project" : "Pin project"}
-          aria-pressed={isPinned}
-          className={[
-            "flex items-center justify-center shrink-0 rounded transition-colors hover:bg-white/10 active:bg-white/15 w-7 h-7",
-            isPinned ? "text-accent" : "text-muted/40 hover:text-muted",
-          ].join(" ")}
-        >
-          <Star size={13} fill={isPinned ? "currentColor" : "none"} />
-        </button>
-
-        {/* View files — available for every project (no connection needed) */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewFiles(p);
-          }}
-          aria-label="View project files"
+          aria-label={`Actions for ${p.name}`}
+          aria-haspopup="menu"
           className="flex items-center justify-center shrink-0 rounded transition-colors hover:bg-white/10 active:bg-white/15 w-9 h-9 text-muted"
         >
-          <FolderOpen size={16} />
+          <MoreVertical size={16} />
         </button>
       </div>
     );
@@ -315,11 +305,13 @@ export function Sidebar({
             <Plus size={18} />
           </button>
           <button
-            ref={moreBtnRef}
-            onClick={() => setMoreOpen((v) => !v)}
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setMoreMenu((m) => (m ? null : { x: r.right, y: r.bottom }));
+            }}
             aria-label="More actions"
             aria-haspopup="menu"
-            aria-expanded={moreOpen}
+            aria-expanded={!!moreMenu}
             className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-9 h-9 text-muted"
           >
             <MoreVertical size={18} />
@@ -337,75 +329,65 @@ export function Sidebar({
       </div>
 
       {/* More menu (secondary header actions) */}
-      {moreOpen &&
-        moreBtnRef.current &&
+      {moreMenu &&
         createPortal(
-          (() => {
-            const r = moreBtnRef.current!.getBoundingClientRect();
-            const allCollapsed =
-              tree.groups.length > 0 && tree.groups.every((g) => collapsed[g.id]);
-            const item =
-              "w-full flex items-center gap-3 px-4 h-11 text-[14px] text-text hover:bg-white/5 active:bg-white/10 text-left";
-            return (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setMoreOpen(false)}
-                  aria-hidden="true"
-                />
-                <div
-                  role="menu"
-                  className="fixed z-50 min-w-[180px] rounded-md border border-border bg-panel shadow-lg overflow-hidden"
-                  style={{ top: r.bottom + 4, right: window.innerWidth - r.right }}
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setMoreMenu(null)}
+              aria-hidden="true"
+            />
+            <div
+              role="menu"
+              className="fixed z-50 min-w-[180px] rounded-md border border-border bg-panel shadow-lg overflow-hidden"
+              style={{ top: moreMenu.y + 4, right: Math.max(8, window.innerWidth - moreMenu.x) }}
+            >
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMoreMenu(null);
+                  openCreateDialog("group");
+                }}
+                className="w-full flex items-center gap-3 px-4 h-11 text-[14px] text-text hover:bg-white/5 active:bg-white/10 text-left"
+              >
+                <FolderPlus size={16} className="text-muted shrink-0" /> New group
+              </button>
+              {tree.groups.length > 0 && (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setMoreMenu(null);
+                    toggleCollapseAll();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 h-11 text-[14px] text-text hover:bg-white/5 active:bg-white/10 text-left"
                 >
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreOpen(false);
-                      openCreateDialog("group");
-                    }}
-                    className={item}
-                  >
-                    <FolderPlus size={16} className="text-muted shrink-0" /> New group
-                  </button>
-                  {tree.groups.length > 0 && (
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setMoreOpen(false);
-                        toggleCollapseAll();
-                      }}
-                      className={item}
-                    >
-                      <ChevronsDownUp size={16} className="text-muted shrink-0" />{" "}
-                      {allCollapsed ? "Expand all" : "Collapse all"}
-                    </button>
-                  )}
-                  {/* Sessions menu item (#19) */}
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreOpen(false);
-                      setShowSessions(true);
-                    }}
-                    className={item}
-                  >
-                    <MonitorPlay size={16} className="text-muted shrink-0" /> Sessions
-                  </button>
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreOpen(false);
-                      setShowSettings(true);
-                    }}
-                    className={item}
-                  >
-                    <Settings size={16} className="text-muted shrink-0" /> Settings
-                  </button>
-                </div>
-              </>
-            );
-          })(),
+                  <ChevronsDownUp size={16} className="text-muted shrink-0" />{" "}
+                  {tree.groups.every((g) => collapsed[g.id]) ? "Expand all" : "Collapse all"}
+                </button>
+              )}
+              {/* Sessions menu item (#19) */}
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMoreMenu(null);
+                  setShowSessions(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 h-11 text-[14px] text-text hover:bg-white/5 active:bg-white/10 text-left"
+              >
+                <MonitorPlay size={16} className="text-muted shrink-0" /> Sessions
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMoreMenu(null);
+                  setShowSettings(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 h-11 text-[14px] text-text hover:bg-white/5 active:bg-white/10 text-left"
+              >
+                <Settings size={16} className="text-muted shrink-0" /> Settings
+              </button>
+            </div>
+          </>,
           document.body,
         )}
 
@@ -574,6 +556,65 @@ export function Sidebar({
 
       {/* ── Session manager modal (#19) ── */}
       {showSessions && <SessionsModal onClose={() => setShowSessions(false)} />}
+
+      {/* ── Delete project modal (type-name confirm) ── */}
+      {deleteProj && (
+        <DeleteProjectModal project={deleteProj} onClose={() => setDeleteProj(null)} />
+      )}
+
+      {/* ── Per-project actions menu (pin / view files / delete) ── */}
+      {rowMenu &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setRowMenu(null)}
+              aria-hidden="true"
+            />
+            <div
+              role="menu"
+              className="fixed z-50 min-w-[170px] rounded-md border border-border bg-panel shadow-lg overflow-hidden"
+              style={{ top: rowMenu.y + 4, right: Math.max(8, window.innerWidth - rowMenu.x) }}
+            >
+              <button
+                role="menuitem"
+                onClick={() => {
+                  togglePin(rowMenu.p.id);
+                  setRowMenu(null);
+                }}
+                className="w-full flex items-center gap-3 px-4 h-11 text-[14px] text-text hover:bg-white/5 active:bg-white/10 text-left"
+              >
+                <Star
+                  size={15}
+                  className="text-muted shrink-0"
+                  fill={pins.includes(rowMenu.p.id) ? "currentColor" : "none"}
+                />
+                {pins.includes(rowMenu.p.id) ? "Unpin" : "Pin"}
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  onViewFiles(rowMenu.p);
+                  setRowMenu(null);
+                }}
+                className="w-full flex items-center gap-3 px-4 h-11 text-[14px] text-text hover:bg-white/5 active:bg-white/10 text-left"
+              >
+                <FolderOpen size={15} className="text-muted shrink-0" /> View files
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setDeleteProj(rowMenu.p);
+                  setRowMenu(null);
+                }}
+                className="w-full flex items-center gap-3 px-4 h-11 text-[14px] text-red-400 hover:bg-red-500/10 active:bg-red-500/15 text-left"
+              >
+                <Trash2 size={15} className="shrink-0" /> Delete
+              </button>
+            </div>
+          </>,
+          document.body,
+        )}
 
       {/* ── Create project / group modal ── */}
       {dialog &&

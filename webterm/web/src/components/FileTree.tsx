@@ -18,13 +18,8 @@ export function FileTree({
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset to the project root when switching projects (root prop changes),
-  // otherwise the tree would keep listing the previous project's directory.
-  useEffect(() => {
-    setCurrentPath(root);
-    setQuery("");
-    setDebouncedQuery("");
-  }, [root]);
+  // State resets on project switch automatically: the parent remounts FileTree
+  // (key on the project path), so no setState-in-effect reset is needed here.
 
   // 250 ms debounce: update debouncedQuery after user stops typing.
   useEffect(() => {

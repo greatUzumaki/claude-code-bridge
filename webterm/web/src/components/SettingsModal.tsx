@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { useSettings } from "../lib/settings";
+import { useSettings } from "../lib/settingsContext";
 import { pushSupported, pushPermission, isSubscribed, enablePush, disablePush } from "../lib/push";
 
 const ACCENT_PRESETS = [

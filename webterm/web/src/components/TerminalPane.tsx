@@ -13,7 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTerminal } from "../hooks/useTerminal";
-import { useSettings } from "../lib/settings";
+import { useSettings } from "../lib/settingsContext";
 import { haptic } from "../lib/haptics";
 import { reportConn, unreportConn } from "../lib/connStatus";
 

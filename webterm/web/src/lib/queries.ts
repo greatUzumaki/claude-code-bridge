@@ -27,6 +27,40 @@ export function useHostStats() {
   });
 }
 
+export function useDocker() {
+  return useQuery({
+    queryKey: ["docker"],
+    queryFn: () => api.listContainers(),
+    refetchInterval: 5000,
+  });
+}
+
+export function useProcesses() {
+  return useQuery({
+    queryKey: ["processes"],
+    queryFn: () => api.listProcesses(),
+    refetchInterval: 5000,
+  });
+}
+
+export function useDockerAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action }: { id: string; action: "start" | "stop" | "restart" }) =>
+      api.dockerAction(id, action),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["docker"] }),
+  });
+}
+
+export function useKillProcess() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ pid, signal }: { pid: number; signal?: "KILL" }) =>
+      api.killProcess(pid, signal),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["processes"] }),
+  });
+}
+
 export function useTerms(enabled: boolean) {
   return useQuery({
     queryKey: ["terms"],
@@ -92,6 +126,14 @@ export function useCreateGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (name: string) => api.createGroup(name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
+export function useDeleteProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (projectId: string) => api.deleteProject(projectId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
 }

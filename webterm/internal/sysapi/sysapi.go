@@ -24,10 +24,14 @@ type API struct{ store *project.Store }
 // New creates a sysapi.API.
 func New(store *project.Store) *API { return &API{store: store} }
 
-// Register wires the two endpoints into mux.
+// Register wires the sysapi endpoints (git status, host stats, docker, processes) into mux.
 func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/git/status", a.gitStatus)
 	mux.HandleFunc("GET /api/host/stats", a.hostStats)
+	mux.HandleFunc("GET /api/docker/ps", a.dockerPS)
+	mux.HandleFunc("POST /api/docker/action", a.dockerAction)
+	mux.HandleFunc("GET /api/sys/processes", a.processes)
+	mux.HandleFunc("POST /api/sys/kill", a.killProcess)
 }
 
 // gitProjectStatus holds the per-project git info returned to the client.

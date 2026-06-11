@@ -134,6 +134,28 @@ func (s *Store) Register(mux *http.ServeMux) {
 		}
 		httpJSON(w, 200, p)
 	})
+	mux.HandleFunc("DELETE /api/projects/delete", func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("projectId")
+		if id == "" {
+			httpErr(w, 400, "projectId is required")
+			return
+		}
+		// Kill any tmux sessions for this project before removing its folder, so
+		// no shell is left running in a deleted cwd. Mirrors the active-detection
+		// in /api/projects/list (base name + "_<n>" tab suffixes).
+		base := terminal.SessionName(id, 0)
+		sessions, _ := terminal.List()
+		for _, n := range sessions {
+			if n == base || strings.HasPrefix(n, base+"_") {
+				_ = terminal.Kill(n)
+			}
+		}
+		if err := s.DeleteProject(id); err != nil {
+			httpErr(w, 500, err.Error())
+			return
+		}
+		httpJSON(w, 200, map[string]bool{"ok": true})
+	})
 	mux.HandleFunc("POST /api/projects/move", func(w http.ResponseWriter, r *http.Request) {
 		var b struct {
 			ProjectID, GroupID string

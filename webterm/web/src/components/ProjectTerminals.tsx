@@ -20,7 +20,11 @@ export function ProjectTerminals({ projectId }: { projectId: string }) {
   // to xterm for normal scrolling).
   const panesRef = useRef<HTMLDivElement>(null);
   const tabsLenRef = useRef(tabs.length);
-  tabsLenRef.current = tabs.length;
+  // Keep the latest tab count in a ref for the touch handlers — synced in an
+  // effect rather than assigned during render.
+  useEffect(() => {
+    tabsLenRef.current = tabs.length;
+  }, [tabs.length]);
   useEffect(() => {
     const el = panesRef.current;
     if (!el) return;

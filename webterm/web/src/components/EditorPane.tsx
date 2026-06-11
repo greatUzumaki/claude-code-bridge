@@ -49,17 +49,10 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
   const { data: fileData, isLoading } = useFile(path, kind !== "image");
   const writeFile = useWriteFile();
 
-  // Fix #2: when path changes, immediately clear the buffer so we never show
-  // or save stale content from the previous file.
-  useEffect(() => {
-    if (kind === "image") return;
-    setValue("");
-    setDirty(false);
-    setTooLarge(false);
-    setMdMode("preview");
-    // Reset the synced-path so the data effect will fill the buffer once data arrives.
-    lastSyncedPath.current = null;
-  }, [path, kind]);
+  // Fix #2: stale content from a previous file is avoided by remounting on path
+  // change — the parent renders <EditorPane key={path} …>, so switching files
+  // gives a fresh buffer (value="", dirty=false, lastSyncedPath=null) without a
+  // setState-in-effect reset. The sync effect below then fills the buffer once.
 
   // Fix #1: sync fetched content into the buffer only on the first arrival for
   // this path (tracked via lastSyncedPath). A same-path background re-fetch

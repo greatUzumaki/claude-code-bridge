@@ -50,8 +50,8 @@ export default defineConfig({
         ],
         // Long-press the installed app icon → jump straight to an action.
         shortcuts: [
-          { name: "Multiscreen", short_name: "Grid", url: "/?action=multi" },
-          { name: "Projects", short_name: "Projects", url: "/?action=projects" },
+          { name: "Multiscreen", short_name: "Grid", url: "/terminal?action=multi" },
+          { name: "Projects", short_name: "Projects", url: "/terminal?action=projects" },
         ],
       },
       injectManifest: { globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"] },
