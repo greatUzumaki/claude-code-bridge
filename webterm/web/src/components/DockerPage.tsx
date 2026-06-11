@@ -4,7 +4,7 @@ import { NavBar } from "./NavBar";
 import { SortHeader } from "./SortHeader";
 import { useDocker, useDockerAction } from "../lib/queries";
 import type { DockerContainer } from "../lib/api";
-import { sortContainers, type DockerSortKey } from "../lib/dockerSort";
+import { sortContainers, formatPorts, type DockerSortKey } from "../lib/dockerSort";
 import type { SortDir } from "../lib/procFilter";
 
 function StateBadge({ state }: { state: string }) {
@@ -123,7 +123,9 @@ export function DockerPage() {
                     <StateBadge state={c.State} />
                   </td>
                   <td className="px-3 py-2 text-muted whitespace-nowrap">{c.Status}</td>
-                  <td className="px-3 py-2 text-muted font-mono text-[12px] break-all">{c.Ports}</td>
+                  <td className="px-3 py-2 text-muted font-mono text-[12px] whitespace-nowrap">
+                    {formatPorts(c.Ports) || "—"}
+                  </td>
                   <td className="px-3 py-2">
                     <Actions container={c} />
                   </td>

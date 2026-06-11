@@ -3,6 +3,24 @@ import type { SortDir } from "./procFilter";
 
 export type DockerSortKey = "Names" | "Image" | "State" | "Status";
 
+// formatPorts condenses docker's verbose Ports string to just the published
+// host→container mappings: drops the bind IP, the /proto suffix, and any
+// exposed-but-unpublished ports (no "->"). e.g.
+//   "127.0.0.1:6379->6379/tcp, 5778-5779/tcp"  ->  "6379→6379"
+export function formatPorts(raw: string): string {
+  if (!raw) return "";
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.includes("->"))
+    .map((s) => {
+      const [left, right] = s.split("/")[0].split("->");
+      const host = left.includes(":") ? left.slice(left.lastIndexOf(":") + 1) : left;
+      return `${host}→${right}`;
+    })
+    .join(", ");
+}
+
 // Rank container states so sorting "by status" groups running containers first,
 // then progressively less-healthy states. Unknown states sort last.
 const stateRank: Record<string, number> = {

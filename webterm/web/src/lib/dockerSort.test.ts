@@ -1,6 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { sortContainers } from "./dockerSort";
+import { sortContainers, formatPorts } from "./dockerSort";
 import type { DockerContainer } from "./api";
+
+describe("formatPorts", () => {
+  it("keeps only host→container mappings, drops IP and proto", () => {
+    expect(formatPorts("127.0.0.1:6379->6379/tcp")).toBe("6379→6379");
+  });
+  it("drops exposed-but-unpublished ports (no ->)", () => {
+    expect(formatPorts("5778-5779/tcp, 9411/tcp, 127.0.0.1:16686->16686/tcp")).toBe("16686→16686");
+  });
+  it("keeps port ranges and joins multiple mappings", () => {
+    expect(formatPorts("0.0.0.0:9000-9001->9000-9001/tcp, 127.0.0.1:5432->5432/tcp")).toBe(
+      "9000-9001→9000-9001, 5432→5432",
+    );
+  });
+  it("returns empty string for no ports / exposed-only", () => {
+    expect(formatPorts("")).toBe("");
+    expect(formatPorts("80/tcp")).toBe("");
+  });
+});
 
 const c = (over: Partial<DockerContainer>): DockerContainer => ({
   ID: "id",
