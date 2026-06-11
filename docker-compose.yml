@@ -18,7 +18,9 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      # Postgres 18+ stores data in a major-version subdir; mount the parent,
+      # not /var/lib/postgresql/data (the 18 entrypoint rejects the legacy path).
+      - pg_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -28,7 +30,7 @@ services:
     networks: [backend]
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     restart: unless-stopped
     # AOF persistence + password auth.
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-app}"]
@@ -46,7 +48,7 @@ services:
     networks: [backend]
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -67,11 +69,11 @@ services:
     networks: [backend]
 
   jaeger:
-    image: jaegertracing/all-in-one:1.62.0
+    # Jaeger v2: image renamed from all-in-one → jaeger. Runs all-in-one by
+    # default (in-memory storage, OTLP receivers on 4317/4318, UI on 16686);
+    # the v1 env vars (COLLECTOR_OTLP_ENABLED, SPAN_STORAGE_TYPE) are gone.
+    image: jaegertracing/jaeger:2.19.0
     restart: unless-stopped
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true" # accept OTLP on 4317/4318
-      SPAN_STORAGE_TYPE: memory # dev: in-memory traces (lost on restart)
     ports:
       - "127.0.0.1:${JAEGER_UI_PORT:-16686}:16686" # Web UI
       - "127.0.0.1:${JAEGER_OTLP_GRPC_PORT:-4317}:4317" # OTLP gRPC
