@@ -2,3 +2,8 @@
 .env.local
 *.local
 .docs
+/crt.crt
+/private.crt
+*.key
+*.pem
+*.crt
