@@ -10,7 +10,6 @@ import {
   ChevronsDownUp,
   LayoutGrid,
   MoreVertical,
-  Settings,
   Settings2,
   Trash2,
   Check,
@@ -20,7 +19,7 @@ import {
   MonitorPlay,
 } from "lucide-react";
 import { buildTree, type Project } from "../lib/grouping";
-import { SettingsModal } from "./SettingsModal";
+import { haptic } from "../lib/haptics";
 import { SessionsModal } from "./SessionsModal";
 import { DeleteProjectModal } from "./DeleteProjectModal";
 import {
@@ -77,7 +76,6 @@ export function Sidebar({
   const [cloneUrl, setCloneUrl] = useState("");
   const [settingsGroup, setSettingsGroup] = useState<string | null>(null);
   const [settingsName, setSettingsName] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
   const [deleteProj, setDeleteProj] = useState<Project | null>(null);
   // Per-project actions menu: the project + the screen position to anchor to.
@@ -207,7 +205,10 @@ export function Sidebar({
           setDragId(null);
           setDropTarget(null);
         }}
-        onClick={() => onSelect(p)}
+        onClick={() => {
+          haptic();
+          onSelect(p);
+        }}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === "Enter" && onSelect(p)}
@@ -376,16 +377,6 @@ export function Sidebar({
               >
                 <MonitorPlay size={16} className="text-muted shrink-0" /> Sessions
               </button>
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setMoreMenu(null);
-                  setShowSettings(true);
-                }}
-                className="w-full flex items-center gap-3 px-4 h-11 text-[14px] text-text hover:bg-white/5 active:bg-white/10 text-left"
-              >
-                <Settings size={16} className="text-muted shrink-0" /> Settings
-              </button>
             </div>
           </>,
           document.body,
@@ -550,9 +541,6 @@ export function Sidebar({
           </div>,
           document.body,
         )}
-
-      {/* ── App settings modal ── */}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {/* ── Session manager modal (#19) ── */}
       {showSessions && <SessionsModal onClose={() => setShowSessions(false)} />}

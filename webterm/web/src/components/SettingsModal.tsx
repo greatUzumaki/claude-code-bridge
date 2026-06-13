@@ -2,6 +2,8 @@ import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useSettings } from "../lib/settingsContext";
+import { haptic } from "../lib/haptics";
+import { forceUpdate } from "../lib/swManager";
 import {
   pushSupported,
   pushPermission,
@@ -55,6 +57,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
   const handleTestPush = async () => {
     if (testBusy) return;
+    haptic();
     setTestBusy(true);
     setTestMsg(null);
     try {
@@ -84,6 +87,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
   const handlePushToggle = async () => {
     if (pushBusy) return;
+    haptic();
     setPushBusy(true);
     setPushError(null);
     try {
@@ -384,6 +388,23 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
           <p className="mt-2 text-[12px] text-muted leading-relaxed">
             Silence threshold is set on the server (--silence-seconds).
+          </p>
+        </div>
+
+        {/* App — manual cache/SW reset for stuck installs */}
+        <div className="mt-5 pt-4 border-t border-border">
+          <div className="text-xs uppercase tracking-wider text-muted mb-2">App</div>
+          <button
+            onClick={() => {
+              haptic();
+              void forceUpdate();
+            }}
+            className="flex items-center justify-center gap-2 w-full min-h-11 rounded-md text-[14px] text-text border border-border transition-colors hover:bg-white/5 active:bg-white/10"
+          >
+            Force update (clear cache &amp; reload)
+          </button>
+          <p className="mt-2 text-[12px] text-muted leading-relaxed">
+            Drops the service worker + caches and reloads — use if an old version is stuck.
           </p>
         </div>
       </div>

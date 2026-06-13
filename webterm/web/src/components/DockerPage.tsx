@@ -3,6 +3,7 @@ import { RefreshCw, Container, Play, Square, RotateCw } from "lucide-react";
 import { NavBar } from "./NavBar";
 import { SortHeader } from "./SortHeader";
 import { useDocker, useDockerAction } from "../lib/queries";
+import { haptic } from "../lib/haptics";
 import type { DockerContainer } from "../lib/api";
 import { sortContainers, formatPorts, type DockerSortKey } from "../lib/dockerSort";
 import type { SortDir } from "../lib/procFilter";
@@ -35,7 +36,10 @@ function Actions({ container }: { container: DockerContainer }) {
       {running ? (
         <>
           <button
-            onClick={() => act.mutate({ id: container.ID, action: "stop" })}
+            onClick={() => {
+              haptic();
+              act.mutate({ id: container.ID, action: "stop" });
+            }}
             disabled={busy}
             className={`${btn} text-red-400 hover:bg-red-500/10`}
             aria-label={`Stop ${container.Names}`}
@@ -43,7 +47,10 @@ function Actions({ container }: { container: DockerContainer }) {
             <Square size={12} /> Stop
           </button>
           <button
-            onClick={() => act.mutate({ id: container.ID, action: "restart" })}
+            onClick={() => {
+              haptic();
+              act.mutate({ id: container.ID, action: "restart" });
+            }}
             disabled={busy}
             className={`${btn} text-muted hover:bg-white/5`}
             aria-label={`Restart ${container.Names}`}
@@ -53,7 +60,10 @@ function Actions({ container }: { container: DockerContainer }) {
         </>
       ) : (
         <button
-          onClick={() => act.mutate({ id: container.ID, action: "start" })}
+          onClick={() => {
+            haptic();
+            act.mutate({ id: container.ID, action: "start" });
+          }}
           disabled={busy}
           className={`${btn} text-green-400 hover:bg-green-500/10`}
           aria-label={`Start ${container.Names}`}

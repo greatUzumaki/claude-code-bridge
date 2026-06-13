@@ -5,6 +5,9 @@ import "./index.css";
 import App from "./App.tsx";
 import { SettingsProvider } from "./lib/settings.tsx";
 import { queryClient } from "./lib/queryClient.ts";
+import { registerServiceWorker } from "./lib/swManager.ts";
+
+registerServiceWorker();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

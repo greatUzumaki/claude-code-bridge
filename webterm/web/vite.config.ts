@@ -12,7 +12,7 @@ export default defineConfig({
       srcDir: "src",
       filename: "sw.ts",
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      injectRegister: false, // we register manually in swManager.ts (aggressive update)
       useCredentials: true,
       includeAssets: [
         "favicon.ico",

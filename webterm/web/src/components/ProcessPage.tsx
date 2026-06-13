@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { RefreshCw, Activity, Search, XCircle } from "lucide-react";
 import { NavBar } from "./NavBar";
 import { useProcesses, useKillProcess } from "../lib/queries";
+import { haptic } from "../lib/haptics";
 import { filterProcesses, sortProcesses, type ProcSortKey, type SortDir } from "../lib/procFilter";
 import { SortHeader } from "./SortHeader";
 
@@ -13,6 +14,7 @@ export function ProcessPage() {
   const [sort, setSort] = useState<{ key: ProcSortKey; dir: SortDir }>({ key: "cpu", dir: "desc" });
 
   const doKill = (pid: number) => {
+    haptic();
     kill.mutate({ pid });
     setConfirmPid(null);
   };
@@ -146,7 +148,10 @@ export function ProcessPage() {
                       </span>
                     ) : (
                       <button
-                        onClick={() => setConfirmPid(p.pid)}
+                        onClick={() => {
+                          haptic();
+                          setConfirmPid(p.pid);
+                        }}
                         aria-label={`Kill process ${p.pid}`}
                         className="flex items-center justify-center gap-1 px-2 h-7 rounded text-[12px] text-muted border border-border hover:bg-red-500/10 hover:text-red-400 transition-colors"
                       >

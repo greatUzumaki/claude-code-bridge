@@ -1,5 +1,6 @@
 import type { ReactNode, AnchorHTMLAttributes } from "react";
 import { navigate } from "../lib/router";
+import { haptic } from "../lib/haptics";
 
 type LinkProps = { to: string; children: ReactNode } & Omit<
   AnchorHTMLAttributes<HTMLAnchorElement>,
@@ -15,6 +16,7 @@ export function Link({ to, children, ...rest }: LinkProps) {
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
         e.preventDefault();
+        haptic();
         navigate(to);
       }}
       {...rest}

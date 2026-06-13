@@ -64,7 +64,7 @@ export function TerminalPane({ projectId, n }: { projectId: string; n?: number }
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const pressKey = (k: Key) => {
-    haptic(settings.haptics);
+    haptic();
     if (k.confirm) setConfirmKey(k);
     else send(k.data);
   };
