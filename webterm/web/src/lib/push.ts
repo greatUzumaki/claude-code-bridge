@@ -50,6 +50,22 @@ export async function enablePush(): Promise<boolean> {
   const { publicKey } = (await res.json()) as { publicKey: string };
 
   const reg = await navigator.serviceWorker.ready;
+
+  // Drop any existing subscription first. A leftover sub may be bound to a stale
+  // VAPID key (e.g. the server re-keyed), which the push service then rejects on
+  // send (Apple: BadJwtToken) — and Safari throws InvalidStateError if you call
+  // subscribe() with a different applicationServerKey. Re-subscribing rebinds to
+  // the current key. Best-effort server cleanup so the dead endpoint doesn't linger.
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) {
+    await fetch("/api/push/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: existing.endpoint }),
+    }).catch(() => {});
+    await existing.unsubscribe().catch(() => {});
+  }
+
   const subscription = await reg.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(publicKey),

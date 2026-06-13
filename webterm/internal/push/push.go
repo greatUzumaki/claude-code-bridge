@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -211,8 +212,12 @@ func (m *Manager) notify(title, body, sessionKey string, test bool) {
 	var staleEndpoints []string
 	for _, sub := range subs {
 		sub := sub
+		// Apple Web Push validates the VAPID JWT `sub` claim strictly and rejects a
+		// malformed one with BadJwtToken (FCM/Mozilla are lenient). webpush-go
+		// prepends "mailto:" itself, so pass a BARE email here — a "mailto:" prefix
+		// would yield a double "mailto:mailto:" sub that Apple rejects.
 		resp, err := webpush.SendNotification(payload, &sub, &webpush.Options{
-			Subscriber:      "mailto:webterm@localhost",
+			Subscriber:      "admin@pargach-bridge.com",
 			VAPIDPublicKey:  m.cfg.PublicKey,
 			VAPIDPrivateKey: m.cfg.PrivateKey,
 			TTL:             60,
@@ -222,11 +227,16 @@ func (m *Manager) notify(title, body, sessionKey string, test bool) {
 			log.Printf("push: send to %s: %v", sub.Endpoint, err)
 			continue
 		}
-		resp.Body.Close()
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 			log.Printf("push: dropping stale subscription %s (HTTP %d)", sub.Endpoint, resp.StatusCode)
 			staleEndpoints = append(staleEndpoints, sub.Endpoint)
+		} else if resp.StatusCode >= 300 {
+			// Don't swallow rejections (bad VAPID, payload, quota) — surface the
+			// push service's reason so delivery failures are diagnosable.
+			b, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+			log.Printf("push: send to %s rejected HTTP %d: %s", sub.Endpoint, resp.StatusCode, strings.TrimSpace(string(b)))
 		}
+		resp.Body.Close()
 	}
 
 	if len(staleEndpoints) > 0 {
