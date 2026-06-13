@@ -65,6 +65,23 @@ export async function enablePush(): Promise<boolean> {
   return true;
 }
 
+/**
+ * Ask the server to send a test push to all subscribers, optionally after a
+ * delay (seconds). Returns the subscriber count so the caller can warn when
+ * there are none. Used by the "Send test push" control in settings.
+ */
+export async function sendTestPush(
+  delaySec: number,
+): Promise<{ ok: boolean; subscribers: number; delay: number }> {
+  const res = await fetch("/api/push/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ delay: delaySec }),
+  });
+  if (!res.ok) throw new Error("test push request failed");
+  return res.json();
+}
+
 /** Unsubscribe from push and notify the backend. */
 export async function disablePush(): Promise<void> {
   if (!pushSupported()) return;

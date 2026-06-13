@@ -29,7 +29,7 @@ async function readPrefs(): Promise<NotifPrefs | null> {
 }
 
 self.addEventListener("push", (event: PushEvent) => {
-  let data: { title?: string; body?: string; tag?: string } = {};
+  let data: { title?: string; body?: string; tag?: string; test?: boolean } = {};
   try {
     data = event.data ? event.data.json() : {};
   } catch {
@@ -38,17 +38,21 @@ self.addEventListener("push", (event: PushEvent) => {
   const title = data.title || "WebTerm";
   event.waitUntil(
     (async () => {
-      const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      const focused = wins.some((c) => c.focused || c.visibilityState === "visible");
-      if (focused) return; // user is looking — don't interrupt
+      // Test pushes (from Settings) always show — they verify delivery, so they
+      // bypass the focus check and mute / quiet-hours prefs.
+      if (!data.test) {
+        const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        const focused = wins.some((c) => c.focused || c.visibilityState === "visible");
+        if (focused) return; // user is looking — don't interrupt
 
-      // Enforce client-side notification prefs.
-      const prefs = await readPrefs();
-      if (prefs?.mute) return;
-      if (prefs?.quietEnabled) {
-        const now = new Date();
-        const nowMinutes = now.getHours() * 60 + now.getMinutes();
-        if (isInQuietWindow(prefs.quietFrom, prefs.quietTo, nowMinutes)) return;
+        // Enforce client-side notification prefs.
+        const prefs = await readPrefs();
+        if (prefs?.mute) return;
+        if (prefs?.quietEnabled) {
+          const now = new Date();
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          if (isInQuietWindow(prefs.quietFrom, prefs.quietTo, nowMinutes)) return;
+        }
       }
 
       await self.registration.showNotification(title, {

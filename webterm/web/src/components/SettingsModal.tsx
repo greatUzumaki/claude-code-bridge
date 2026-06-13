@@ -2,7 +2,14 @@ import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useSettings } from "../lib/settingsContext";
-import { pushSupported, pushPermission, isSubscribed, enablePush, disablePush } from "../lib/push";
+import {
+  pushSupported,
+  pushPermission,
+  isSubscribed,
+  enablePush,
+  disablePush,
+  sendTestPush,
+} from "../lib/push";
 
 const ACCENT_PRESETS = [
   { color: "#5b9dd9", label: "Blue" },
@@ -40,6 +47,31 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
+
+  // --- Test push state ---
+  const [testDelay, setTestDelay] = useState(0);
+  const [testBusy, setTestBusy] = useState(false);
+  const [testMsg, setTestMsg] = useState<string | null>(null);
+
+  const handleTestPush = async () => {
+    if (testBusy) return;
+    setTestBusy(true);
+    setTestMsg(null);
+    try {
+      const r = await sendTestPush(testDelay);
+      if (r.subscribers === 0) {
+        setTestMsg("No subscription — turn push On above first.");
+      } else if (testDelay > 0) {
+        setTestMsg(`Scheduled in ${testDelay}s — lock your screen and wait.`);
+      } else {
+        setTestMsg("Sent — it should arrive now.");
+      }
+    } catch {
+      setTestMsg("Failed to send test push.");
+    } finally {
+      setTestBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!supported) return;
@@ -249,6 +281,35 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <p className="mt-2 text-[12px] text-muted leading-relaxed">
             iOS: works only as an installed PWA (Add to Home Screen). Requires HTTPS.
           </p>
+
+          {/* Test push — pick a delay, send, verify it arrives (lock screen to test background delivery) */}
+          {pushOn && (
+            <div className="mt-3">
+              <div className="text-[12px] text-muted mb-1">Test push</div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={testDelay}
+                  onChange={(e) => setTestDelay(Number(e.target.value))}
+                  aria-label="Test push delay"
+                  className="min-h-9 rounded border border-border bg-panel text-text text-[13px] px-2 focus:outline-none focus:border-accent"
+                >
+                  <option value={0}>Now</option>
+                  <option value={5}>In 5s</option>
+                  <option value={30}>In 30s</option>
+                  <option value={60}>In 1 min</option>
+                  <option value={300}>In 5 min</option>
+                </select>
+                <button
+                  onClick={handleTestPush}
+                  disabled={testBusy}
+                  className="min-h-9 px-3 rounded-md text-[13px] font-medium bg-accent text-bg transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  {testBusy ? "Sending…" : "Send test push"}
+                </button>
+              </div>
+              {testMsg && <p className="mt-1 text-[12px] text-muted leading-relaxed">{testMsg}</p>}
+            </div>
+          )}
 
           {/* Mute all notifications */}
           <button

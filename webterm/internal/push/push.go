@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -169,6 +170,12 @@ func (m *Manager) Unsubscribe(endpoint string) {
 // sessionKey. Calls within 10 s of a previous call for the same sessionKey
 // are silently dropped (debounce).
 func (m *Manager) Notify(title, body, sessionKey string) {
+	m.notify(title, body, sessionKey, false)
+}
+
+// notify is the internal sender. test=true marks the payload so the service
+// worker shows it regardless of focus / mute / quiet hours (test-push button).
+func (m *Manager) notify(title, body, sessionKey string, test bool) {
 	m.mu.Lock()
 	if last, ok := m.lastNotify[sessionKey]; ok && time.Since(last) < 10*time.Second {
 		m.mu.Unlock()
@@ -191,11 +198,11 @@ func (m *Manager) Notify(title, body, sessionKey string) {
 		return
 	}
 
-	payload, err := json.Marshal(map[string]string{
-		"title": title,
-		"body":  body,
-		"tag":   sessionKey,
-	})
+	fields := map[string]any{"title": title, "body": body, "tag": sessionKey}
+	if test {
+		fields["test"] = true
+	}
+	payload, err := json.Marshal(fields)
 	if err != nil {
 		log.Printf("push: marshal payload: %v", err)
 		return
@@ -257,6 +264,44 @@ func (m *Manager) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/push/subscribe", m.handleSubscribe)
 	mux.HandleFunc("POST /api/push/unsubscribe", m.handleUnsubscribe)
 	mux.HandleFunc("POST /api/notify", m.handleNotify)
+	mux.HandleFunc("POST /api/push/test", m.handleTest)
+}
+
+// handleTest sends a test Web Push to all current subscribers, optionally after
+// a delay (so the user can lock their screen and verify background delivery).
+// Behind the auth seam, so no notify secret needed. Each test uses a unique key
+// to bypass Notify's per-session debounce, and reports the subscriber count so
+// the UI can warn when there are none.
+func (m *Manager) handleTest(w http.ResponseWriter, r *http.Request) {
+	var b struct {
+		Delay int `json:"delay"` // seconds; 0 = now
+	}
+	_ = json.NewDecoder(r.Body).Decode(&b) // empty body is fine → delay 0
+	if b.Delay < 0 {
+		b.Delay = 0
+	}
+	if b.Delay > 600 {
+		b.Delay = 600 // cap at 10 min
+	}
+
+	m.mu.Lock()
+	subs := len(m.subs)
+	m.mu.Unlock()
+
+	body := "Test notification — push is working ✅"
+	if b.Delay > 0 {
+		body = fmt.Sprintf("Test push (after %ds) — push is working ✅", b.Delay)
+	}
+	key := fmt.Sprintf("test-%d", time.Now().UnixNano())
+	go func() {
+		if b.Delay > 0 {
+			time.Sleep(time.Duration(b.Delay) * time.Second)
+		}
+		m.notify("WebTerm", body, key, true)
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "subscribers": subs, "delay": b.Delay})
 }
 
 func (m *Manager) handleVAPID(w http.ResponseWriter, r *http.Request) {
