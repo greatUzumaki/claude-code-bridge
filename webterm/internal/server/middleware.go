@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -51,6 +52,12 @@ func authSeam(token string, next http.Handler) http.Handler {
 			}
 			got := sha256.Sum256([]byte(presented))
 			if subtle.ConstantTimeCompare(got[:], want[:]) != 1 {
+				// Log the rejected request (no credential material) so unexplained 401s are
+				// traceable. Behind Caddy a valid Bearer is always injected, so an authSeam
+				// 401 almost always means a request that bypassed the proxy — e.g. a process
+				// inside the box hitting 127.0.0.1:7070 directly (xff empty + loopback remote).
+				log.Printf("auth: 401 %s %s remote=%s xff=%q ua=%q",
+					r.Method, r.URL.Path, r.RemoteAddr, r.Header.Get("X-Forwarded-For"), r.UserAgent())
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}

@@ -20,9 +20,7 @@ export function HeaderStatus() {
 
   return (
     <div className="flex items-center gap-2 shrink-0 text-[11px] text-muted tabular-nums">
-      {stats && (
-        <span className="hidden min-[420px]:inline">CPU {Math.round(stats.cpuPercent)}%</span>
-      )}
+      {stats && <span>CPU {Math.round(stats.cpuPercent)}%</span>}
       {stats && <span>MEM {Math.round(stats.memPercent)}%</span>}
       {stats && <span className="hidden min-[480px]:inline">ld {stats.load1.toFixed(1)}</span>}
       {showLat && (
