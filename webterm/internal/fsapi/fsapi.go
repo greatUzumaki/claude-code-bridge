@@ -1,12 +1,15 @@
 package fsapi
 
 import (
+	"context"
 	"encoding/json"
 	"io/fs"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"webterm/internal/pathjail"
 )
@@ -30,6 +33,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/fs/list", a.list)
 	mux.HandleFunc("GET /api/fs/read", a.read)
 	mux.HandleFunc("GET /api/fs/raw", a.raw)
+	mux.HandleFunc("GET /api/fs/gitshow", a.gitShow)
 	mux.HandleFunc("GET /api/fs/search", a.search)
 	mux.HandleFunc("PUT /api/fs/write", a.write)
 	mux.HandleFunc("POST /api/fs/mkdir", a.mkdir)
@@ -95,6 +99,46 @@ func (a *API) read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"content": string(b), "size": fi.Size()})
+}
+
+// gitShow returns the committed (HEAD) version of a file so the client can diff it
+// against the working-tree content. The path is jail-resolved first; git is scoped to
+// the file's own repo. isRepo=false → not under git; exists=false → untracked / not in
+// HEAD (a new file, nothing to diff against).
+func (a *API) gitShow(w http.ResponseWriter, r *http.Request) {
+	abs, ok := a.resolve(w, r.URL.Query().Get("path"))
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	dir := filepath.Dir(abs)
+	topOut, err := exec.CommandContext(ctx, "git", "-C", dir, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"isRepo": false})
+		return
+	}
+	top := strings.TrimSpace(string(topOut))
+	rel, err := filepath.Rel(top, abs)
+	// Defense in depth: the jail already contained abs, but never let a computed
+	// repo-relative path escape upward into `git show`.
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		jsonErr(w, http.StatusBadRequest, "path outside repo")
+		return
+	}
+
+	out, err := exec.CommandContext(ctx, "git", "-C", top, "show", "HEAD:"+filepath.ToSlash(rel)).Output()
+	if err != nil {
+		// Not in HEAD → new/untracked file; nothing committed to diff against.
+		writeJSON(w, http.StatusOK, map[string]any{"isRepo": true, "exists": false})
+		return
+	}
+	if len(out) > maxRead {
+		writeJSON(w, http.StatusOK, map[string]any{"isRepo": true, "exists": true, "tooLarge": true})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"isRepo": true, "exists": true, "content": string(out)})
 }
 
 func (a *API) raw(w http.ResponseWriter, r *http.Request) {

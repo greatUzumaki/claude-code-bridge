@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, Pencil, Save, X } from "lucide-react";
+import { Columns2, Eye, GitCompare, Pencil, Rows3, Save, X } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
@@ -7,7 +7,8 @@ import { python } from "@codemirror/lang-python";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../lib/api";
-import { useFile, useWriteFile } from "../lib/queries";
+import { useFile, useGitShow, useWriteFile } from "../lib/queries";
+import { DiffView } from "./DiffView";
 
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "avif"]);
 const MD_EXTS = new Set(["md", "markdown"]);
@@ -40,6 +41,9 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
   const [tooLarge, setTooLarge] = useState(false);
   // Markdown: default to preview mode
   const [mdMode, setMdMode] = useState<"preview" | "edit">("preview");
+  // Git diff overlay (vs HEAD) and its layout (inline vs side-by-side).
+  const [showDiff, setShowDiff] = useState(false);
+  const [diffMode, setDiffMode] = useState<"unified" | "split">("split");
 
   // Track the last path whose data we already synced into the buffer so we
   // never overwrite a dirty buffer with a same-path background re-fetch.
@@ -48,6 +52,13 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
   // Only fetch file contents for non-image kinds.
   const { data: fileData, isLoading } = useFile(path, kind !== "image");
   const writeFile = useWriteFile();
+
+  // HEAD version for the diff view. Only meaningful for text; skip images.
+  const { data: headData } = useGitShow(path, kind !== "image");
+  const headText = headData?.exists && !headData.tooLarge ? (headData.content ?? "") : null;
+  // The file differs from its committed version (compares the live buffer, so unsaved
+  // edits show up too). Drives whether the diff toggle is offered.
+  const modified = headText !== null && headText !== value;
 
   // Fix #2: stale content from a previous file is avoided by remounting on path
   // change — the parent renders <EditorPane key={path} …>, so switching files
@@ -104,6 +115,33 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
           </button>
         )}
 
+        {/* Git diff toggle — only when the file differs from its committed version */}
+        {modified && (
+          <>
+            {showDiff && (
+              <button
+                onClick={() => setDiffMode((m) => (m === "split" ? "unified" : "split"))}
+                aria-label={diffMode === "split" ? "Inline diff" : "Side-by-side diff"}
+                title={diffMode === "split" ? "Inline diff" : "Side-by-side diff"}
+                className="flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-11 h-11 text-muted"
+              >
+                {diffMode === "split" ? <Rows3 size={16} /> : <Columns2 size={16} />}
+              </button>
+            )}
+            <button
+              onClick={() => setShowDiff((s) => !s)}
+              aria-label={showDiff ? "Hide diff" : "Show git diff"}
+              title={showDiff ? "Hide diff" : "Git diff vs HEAD"}
+              className={[
+                "flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-11 h-11",
+                showDiff ? "text-accent" : "text-muted",
+              ].join(" ")}
+            >
+              <GitCompare size={16} />
+            </button>
+          </>
+        )}
+
         {/* Save button — hidden for images */}
         {canSave && (
           <button
@@ -130,6 +168,10 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
+        {showDiff && modified && headText !== null ? (
+          <DiffView oldText={headText} newText={value} mode={diffMode} />
+        ) : (
+          <>
         {kind === "image" && (
           <div className="flex items-center justify-center h-full w-full">
             <img
@@ -174,6 +216,8 @@ export function EditorPane({ path, onClose }: { path: string; onClose: () => voi
             }}
             height="100%"
           />
+        )}
+          </>
         )}
       </div>
     </div>

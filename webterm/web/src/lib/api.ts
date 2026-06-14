@@ -39,6 +39,14 @@ export const api = {
     ),
   writeFile: (path: string, content: string) =>
     fetch("/api/fs/write", jsonInit("PUT", { path, content })).then(j),
+  createFile: (path: string, content = "") =>
+    fetch("/api/fs/create", jsonInit("POST", { path, content })).then(j),
+  mkdir: (path: string) => fetch("/api/fs/mkdir", jsonInit("POST", { path })).then(j),
+
+  gitShow: (path: string) =>
+    fetch(`/api/fs/gitshow?path=${encodeURIComponent(path)}`).then(
+      j<{ isRepo: boolean; exists?: boolean; content?: string; tooLarge?: boolean }>,
+    ),
 
   rawUrl: (path: string): string => `/api/fs/raw?path=${encodeURIComponent(path)}`,
   searchFiles: (path: string, q: string): Promise<{ matches: string[] }> =>

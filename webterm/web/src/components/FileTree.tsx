@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, File, Folder, Search } from "lucide-react";
+import { Check, ChevronLeft, File, FilePlus, Folder, FolderPlus, Search, X } from "lucide-react";
 import type { FsEntry } from "../lib/api";
-import { useDir, useSearch } from "../lib/queries";
+import { useCreateFile, useDir, useMkdir, useSearch } from "../lib/queries";
+import { haptic } from "../lib/haptics";
 
 export function FileTree({
   root,
@@ -34,6 +35,48 @@ export function FileTree({
 
   const { data: dirData } = useDir(currentPath);
   const entries: FsEntry[] = dirData?.entries ?? [];
+
+  // Inline create row: which kind is being created (null = none), the typed name, error.
+  const [creating, setCreating] = useState<null | "file" | "dir">(null);
+  const [newName, setNewName] = useState("");
+  const [createErr, setCreateErr] = useState<string | null>(null);
+  const createInputRef = useRef<HTMLInputElement>(null);
+  const createFile = useCreateFile();
+  const mkdir = useMkdir();
+
+  useEffect(() => {
+    if (creating) createInputRef.current?.focus();
+  }, [creating]);
+
+  const startCreate = (kind: "file" | "dir") => {
+    haptic();
+    setCreateErr(null);
+    setNewName("");
+    setCreating(kind);
+  };
+  const cancelCreate = () => {
+    setCreating(null);
+    setNewName("");
+    setCreateErr(null);
+  };
+  const confirmCreate = async () => {
+    const name = newName.trim();
+    if (!name) return cancelCreate();
+    const path = `${currentPath}/${name}`;
+    setCreateErr(null);
+    try {
+      if (creating === "file") {
+        await createFile.mutateAsync({ path });
+        onOpen(path); // jump straight into the new file
+      } else {
+        await mkdir.mutateAsync(path);
+        setCurrentPath(path); // descend into the new folder
+      }
+      cancelCreate();
+    } catch (e) {
+      setCreateErr(e instanceof Error ? e.message : "Failed to create");
+    }
+  };
 
   const isSearching = query.trim().length > 0;
   // isFetching is true while TanStack Query is in-flight for the current debouncedQuery.
@@ -79,6 +122,26 @@ export function FileTree({
             {displayPath}
           </span>
         )}
+        {!isSearching && (
+          <>
+            <button
+              onClick={() => startCreate("file")}
+              aria-label="New file"
+              title="New file"
+              className="shrink-0 flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-9 h-9 text-muted"
+            >
+              <FilePlus size={16} />
+            </button>
+            <button
+              onClick={() => startCreate("dir")}
+              aria-label="New folder"
+              title="New folder"
+              className="shrink-0 flex items-center justify-center rounded transition-colors hover:bg-white/5 active:bg-white/10 w-9 h-9 text-muted"
+            >
+              <FolderPlus size={16} />
+            </button>
+          </>
+        )}
         {canGoUp && (
           <button
             onClick={goUp}
@@ -116,6 +179,47 @@ export function FileTree({
 
       {/* Entries / Search results */}
       <div className="flex-1 overflow-y-auto px-1 py-1">
+        {!isSearching && creating && (
+          <div className="px-1 pb-1">
+            <div className="flex items-center gap-1 min-h-11">
+              {creating === "file" ? (
+                <File size={16} className="shrink-0 text-muted" />
+              ) : (
+                <Folder size={16} className="shrink-0 text-accent" />
+              )}
+              <input
+                ref={createInputRef}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void confirmCreate();
+                  }
+                  if (e.key === "Escape") cancelCreate();
+                }}
+                placeholder={creating === "file" ? "filename.ext" : "folder name"}
+                aria-label={creating === "file" ? "New file name" : "New folder name"}
+                className="flex-1 min-w-0 bg-bg border border-border rounded px-2 h-8 text-[13px] text-text placeholder:text-muted outline-none focus:border-accent"
+              />
+              <button
+                onClick={() => void confirmCreate()}
+                aria-label="Create"
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded text-accent hover:bg-white/5 active:bg-white/10"
+              >
+                <Check size={16} />
+              </button>
+              <button
+                onClick={cancelCreate}
+                aria-label="Cancel"
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded text-muted hover:bg-white/5 active:bg-white/10"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {createErr && <p className="px-1 pt-0.5 text-xs text-red-400">{createErr}</p>}
+          </div>
+        )}
         {isSearching ? (
           searchResults.length === 0 && !searching ? (
             <p className="px-3 py-2 text-xs text-muted">No results.</p>

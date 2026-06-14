@@ -96,6 +96,16 @@ export function useFile(path: string, enabled: boolean) {
   });
 }
 
+// Committed (HEAD) version of a file, for the editor's git-diff view.
+export function useGitShow(path: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["gitshow", path],
+    queryFn: () => api.gitShow(path),
+    enabled,
+    refetchOnWindowFocus: false,
+  });
+}
+
 // ── Mutation hooks ────────────────────────────────────────────────────────────
 
 export function useCreateProject() {
@@ -188,5 +198,25 @@ export function useWriteFile() {
     mutationFn: ({ path, content }: { path: string; content: string }) =>
       api.writeFile(path, content),
     onSuccess: (_data, { path }) => qc.invalidateQueries({ queryKey: ["file", path] }),
+  });
+}
+
+// Parent directory of a path → the ["dir", parent] query key to refresh after create.
+const dirKeyOf = (path: string) => ["dir", path.split("/").slice(0, -1).join("/")];
+
+export function useCreateFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ path, content = "" }: { path: string; content?: string }) =>
+      api.createFile(path, content),
+    onSuccess: (_data, { path }) => qc.invalidateQueries({ queryKey: dirKeyOf(path) }),
+  });
+}
+
+export function useMkdir() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (path: string) => api.mkdir(path),
+    onSuccess: (_data, path) => qc.invalidateQueries({ queryKey: dirKeyOf(path) }),
   });
 }

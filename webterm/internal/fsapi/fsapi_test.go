@@ -54,6 +54,17 @@ func TestTraversalBlocked(t *testing.T) {
 	}
 }
 
+func TestGitShowTraversalBlocked(t *testing.T) {
+	api, _ := newAPI(t)
+	mux := http.NewServeMux()
+	api.Register(mux)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/fs/gitshow?path=../../etc/passwd", nil))
+	if rec.Code == http.StatusOK {
+		t.Fatal("gitshow traversal must be rejected")
+	}
+}
+
 // ---- /api/fs/raw ------------------------------------------------------------
 
 func TestRawServesTextFile(t *testing.T) {
