@@ -18,6 +18,17 @@ type NotifPrefs = {
   quietTo: string;
 };
 
+/** base64url VAPID public key → Uint8Array for pushManager applicationServerKey. */
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const buf = new ArrayBuffer(raw.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
+  return view;
+}
+
 /** Read notification prefs written by notifPrefs.ts via the Cache API. */
 async function readPrefs(): Promise<NotifPrefs | null> {
   try {
@@ -61,6 +72,34 @@ self.addEventListener("push", (event: PushEvent) => {
         icon: "/android-chrome-192x192.png",
         badge: "/favicon-32x32.png",
       });
+    })(),
+  );
+});
+
+// Chrome/FCM rotate or invalidate push subscriptions periodically; when they do, the browser
+// fires `pushsubscriptionchange` and expects us to re-subscribe and re-register the new
+// endpoint. Without this the old endpoint goes 410 Gone and the device silently stops receiving
+// — which is why only iOS (which rarely rotates) kept getting pushes. Re-bind to the current
+// VAPID key and POST the fresh subscription so the server's endpoint stays live.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  (event as ExtendableEvent).waitUntil(
+    (async () => {
+      try {
+        const res = await fetch("/api/push/vapid");
+        if (!res.ok) return;
+        const { publicKey } = (await res.json()) as { publicKey: string };
+        const sub = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sub.toJSON()),
+        });
+      } catch {
+        /* best-effort — nothing actionable to surface from the SW */
+      }
     })(),
   );
 });

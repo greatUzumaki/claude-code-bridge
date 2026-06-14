@@ -82,6 +82,31 @@ export async function enablePush(): Promise<boolean> {
 }
 
 /**
+ * Re-register the device's CURRENT push subscription with the server on app start.
+ * Chrome rotates/invalidates push subscriptions without reliably firing
+ * `pushsubscriptionchange` (the event has limited availability and often never fires
+ * in Chrome), so without this the server keeps a stale endpoint and the device
+ * silently stops receiving — which is why only iOS (stable subscriptions) kept
+ * getting pushes. The POST is idempotent (the server dedupes by endpoint), so this is
+ * safe to run every load. Best-effort: a failure just leaves the prior state intact.
+ */
+export async function resyncPushSubscription(): Promise<void> {
+  if (!pushSupported() || Notification.permission !== "granted") return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return;
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sub.toJSON()),
+    });
+  } catch {
+    /* offline or transient — the next load retries */
+  }
+}
+
+/**
  * Ask the server to send a test push to all subscribers, optionally after a
  * delay (seconds). Returns the subscriber count so the caller can warn when
  * there are none. Used by the "Send test push" control in settings.

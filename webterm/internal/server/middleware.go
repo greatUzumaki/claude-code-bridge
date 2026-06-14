@@ -18,13 +18,31 @@ import (
 // headers, so when auth is enabled the frontend obtains an HttpOnly+Secure
 // cookie via a /login exchange (implemented with the auth phase); the WS
 // handshake then carries that cookie automatically.
+// publicAssets are served WITHOUT auth by design. PWA install fetches — the iOS
+// home-screen icon, the web manifest, favicons — are issued by the OS/browser
+// outside the app's auth session (iOS fetches the touch icon anonymously, so a 401
+// makes it fall back to a generic letter glyph; the same 401 blanks notification
+// icons). These are non-sensitive branding/metadata, and a public manifest+icons is
+// standard PWA practice. Everything else stays behind the gate. App code (sw.js,
+// index.html, /assets/*) is intentionally NOT here — it loads in-session.
+var publicAssets = map[string]bool{
+	"/favicon.ico":                true,
+	"/favicon-16x16.png":          true,
+	"/favicon-32x32.png":          true,
+	"/apple-touch-icon.png":       true,
+	"/android-chrome-192x192.png": true,
+	"/android-chrome-512x512.png": true,
+	"/manifest.webmanifest":       true,
+	"/robots.txt":                 true,
+}
+
 func authSeam(token string, next http.Handler) http.Handler {
 	var want [32]byte
 	if token != "" {
 		want = sha256.Sum256([]byte(token))
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token != "" {
+		if token != "" && !publicAssets[r.URL.Path] {
 			presented := ""
 			if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 				presented = strings.TrimPrefix(h, "Bearer ")
