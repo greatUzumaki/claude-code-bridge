@@ -43,6 +43,16 @@ export function TerminalApp() {
     setNavOpen(false);
   };
 
+  // Killing the active project's session would otherwise instantly re-create it (its mounted
+  // terminal pane re-attaches → tmux ensures the session). Drop back to the "select a project"
+  // screen so the pane unmounts and stays dead.
+  const handleSessionKilled = (id: string) => {
+    if (active?.id === id) {
+      setActive(null);
+      setOpenFile(null);
+    }
+  };
+
   const handleViewFiles = (p: Project) => {
     setFilesFor(p);
     setNavOpen(true); // ensure the file tree (in the sidebar slot) is visible on phone
@@ -95,6 +105,7 @@ export function TerminalApp() {
             activeId={active?.id ?? ""}
             onSelect={handleSelectProject}
             onViewFiles={handleViewFiles}
+            onSessionKilled={handleSessionKilled}
             onClose={() => setNavOpen(false)}
             multi={multi}
             onToggleMulti={toggleMulti}

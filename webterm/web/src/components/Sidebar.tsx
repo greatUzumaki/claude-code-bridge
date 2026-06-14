@@ -17,6 +17,7 @@ import {
   Star,
   GitBranch,
   MonitorPlay,
+  MonitorX,
 } from "lucide-react";
 import { buildTree, type Project } from "../lib/grouping";
 import { haptic } from "../lib/haptics";
@@ -31,6 +32,8 @@ import {
   useMoveProject,
   useRenameGroup,
   useDeleteGroup,
+  useTerms,
+  useKillTerm,
 } from "../lib/queries";
 
 type Dialog = null | { kind: "project" } | { kind: "group" };
@@ -59,6 +62,7 @@ export function Sidebar({
   activeId,
   onSelect,
   onViewFiles,
+  onSessionKilled,
   onClose,
   multi,
   onToggleMulti,
@@ -66,6 +70,7 @@ export function Sidebar({
   activeId: string;
   onSelect: (p: Project) => void;
   onViewFiles: (p: Project) => void;
+  onSessionKilled?: (id: string) => void;
   onClose?: () => void;
   multi?: boolean;
   onToggleMulti?: () => void;
@@ -80,6 +85,8 @@ export function Sidebar({
   const [deleteProj, setDeleteProj] = useState<Project | null>(null);
   // Per-project actions menu: the project + the screen position to anchor to.
   const [rowMenu, setRowMenu] = useState<{ p: Project; x: number; y: number } | null>(null);
+  // Two-step confirm for "Kill session" inside the row menu (easy to mis-tap on a phone).
+  const [killConfirm, setKillConfirm] = useState(false);
   // Header "more" menu: anchor position captured at click time (avoids reading a
   // ref during render).
   const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
@@ -104,6 +111,29 @@ export function Sidebar({
   const moveProject = useMoveProject();
   const renameGroup = useRenameGroup();
   const deleteGroup = useDeleteGroup();
+
+  // Live tmux session list so the row menu can offer "Kill session" without opening the manager.
+  const { data: termsData } = useTerms(true);
+  const killTerm = useKillTerm();
+
+  // Tmux session names for a project, mirroring Go terminal.SessionName: projectID is
+  // sanitized ([^a-zA-Z0-9_] → "_"), prefixed "wt_", with tab panes suffixed "_<n>".
+  const sessionsForProject = (id: string): string[] => {
+    const safe = id.replace(/[^a-zA-Z0-9_]/g, "_");
+    const base = `wt_${safe}`;
+    const tab = new RegExp(`^${base}_\\d+$`);
+    return (termsData?.sessions ?? []).filter((s) => s === base || tab.test(s));
+  };
+
+  const killProjectSessions = async (id: string) => {
+    for (const sess of sessionsForProject(id)) {
+      try {
+        await killTerm.mutateAsync(sess);
+      } catch {
+        // ignore individual failures; keep killing the rest
+      }
+    }
+  };
 
   const tree = buildTree(layout);
 
@@ -258,6 +288,7 @@ export function Sidebar({
           onClick={(e) => {
             e.stopPropagation();
             const r = e.currentTarget.getBoundingClientRect();
+            setKillConfirm(false);
             setRowMenu({ p, x: r.right, y: r.bottom });
           }}
           aria-label={`Actions for ${p.name}`}
@@ -589,6 +620,33 @@ export function Sidebar({
               >
                 <FolderOpen size={15} className="text-muted shrink-0" /> View files
               </button>
+              {sessionsForProject(rowMenu.p.id).length > 0 && (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    if (!killConfirm) {
+                      setKillConfirm(true);
+                      return;
+                    }
+                    haptic();
+                    const id = rowMenu.p.id;
+                    setRowMenu(null);
+                    // Deselect first so the project's terminal pane unmounts and can't
+                    // re-attach/re-create the session we're about to kill.
+                    onSessionKilled?.(id);
+                    void killProjectSessions(id);
+                  }}
+                  className={[
+                    "w-full flex items-center gap-3 px-4 h-11 text-[14px] text-left",
+                    killConfirm
+                      ? "text-white bg-red-500 hover:bg-red-500/90 active:bg-red-500/80"
+                      : "text-amber-400 hover:bg-amber-500/10 active:bg-amber-500/15",
+                  ].join(" ")}
+                >
+                  <MonitorX size={15} className="shrink-0" />{" "}
+                  {killConfirm ? "Confirm kill session" : "Kill session"}
+                </button>
+              )}
               <button
                 role="menuitem"
                 onClick={() => {
