@@ -36,18 +36,29 @@ type Manager struct {
 	mu         sync.Mutex
 	dir        string
 	cfg        config
+	subscriber string // VAPID JWT "sub" contact (bare email or https URL)
 	subs       []webpush.Subscription
 	lastNotify map[string]time.Time
 }
 
-// New loads or creates push state under dir (should be <root>/.webterm).
-func New(dir string) (*Manager, error) {
+// defaultSubscriber is a neutral VAPID contact used when none is configured. It is a
+// format-valid placeholder (no real address is contacted); the deployment overrides it.
+const defaultSubscriber = "webpush@example.com"
+
+// New loads or creates push state under dir (should be <root>/.webterm). subscriber is
+// the VAPID JWT "sub" contact some push services validate (bare email or https URL);
+// empty falls back to defaultSubscriber.
+func New(dir, subscriber string) (*Manager, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
+	}
+	if subscriber == "" {
+		subscriber = defaultSubscriber
 	}
 
 	m := &Manager{
 		dir:        dir,
+		subscriber: subscriber,
 		lastNotify: make(map[string]time.Time),
 	}
 
@@ -217,7 +228,7 @@ func (m *Manager) notify(title, body, sessionKey string, test bool) {
 		// prepends "mailto:" itself, so pass a BARE email here — a "mailto:" prefix
 		// would yield a double "mailto:mailto:" sub that Apple rejects.
 		resp, err := webpush.SendNotification(payload, &sub, &webpush.Options{
-			Subscriber:      "admin@pargach-bridge.com",
+			Subscriber:      m.subscriber,
 			VAPIDPublicKey:  m.cfg.PublicKey,
 			VAPIDPrivateKey: m.cfg.PrivateKey,
 			TTL:             60,
@@ -367,8 +378,10 @@ func (m *Manager) handleUnsubscribe(w http.ResponseWriter, r *http.Request) {
 func (m *Manager) handleNotify(w http.ResponseWriter, r *http.Request) {
 	key := r.URL.Query().Get("key")
 	secret := m.NotifySecret()
-	// Constant-time comparison to prevent timing attacks.
-	if subtle.ConstantTimeCompare([]byte(key), []byte(secret)) != 1 {
+	// Constant-time comparison to prevent timing attacks. An empty secret must never
+	// match (this endpoint sits outside the main auth gate, so an empty-key request
+	// must not pass when the secret is unset).
+	if secret == "" || subtle.ConstantTimeCompare([]byte(key), []byte(secret)) != 1 {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

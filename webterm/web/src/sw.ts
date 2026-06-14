@@ -70,7 +70,9 @@ self.addEventListener("push", (event: PushEvent) => {
         body: data.body || "",
         tag: data.tag,
         icon: "/android-chrome-192x192.png",
-        badge: "/favicon-32x32.png",
+        // Monochrome status-bar glyph (Android tints it by alpha); a colored favicon
+        // would render as a flat blob here.
+        badge: "/notification-badge.png",
       });
     })(),
   );

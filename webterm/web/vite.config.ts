@@ -19,6 +19,7 @@ export default defineConfig({
         "apple-touch-icon.png",
         "favicon-16x16.png",
         "favicon-32x32.png",
+        "notification-badge.png",
       ],
       manifest: {
         name: "WebTerm",

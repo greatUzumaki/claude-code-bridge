@@ -20,6 +20,7 @@ type Config struct {
 	Token          string   // empty = auth disabled (seam no-op)
 	AllowedOrigins []string // WS Origin host patterns; nil = strict same-origin
 	SilenceSeconds int      // tmux monitor-silence threshold; <= 0 keeps the default
+	PushSubscriber string   // VAPID contact for Web Push (bare email or https URL); empty = default
 }
 
 type Server struct {
@@ -44,7 +45,7 @@ func New(cfg Config) *Server {
 
 	// Set up Web Push manager; failures are non-fatal.
 	pushDir := filepath.Join(cfg.Root, ".webterm")
-	if mgr, err := push.New(pushDir); err != nil {
+	if mgr, err := push.New(pushDir, cfg.PushSubscriber); err != nil {
 		log.Printf("push: init failed (push disabled): %v", err)
 	} else {
 		// Build the notify hook command that tmux will invoke on silence/bell.
@@ -54,7 +55,8 @@ func New(cfg Config) *Server {
 		if _, p, err := net.SplitHostPort(cfg.Addr); err == nil && p != "" {
 			port = p
 		}
-		terminal.NotifyHook = `run-shell "curl -s -m 2 'http://127.0.0.1:` + port +
+		// POST to match the route; the hook is a local tmux run-shell curl.
+		terminal.NotifyHook = `run-shell "curl -s -m 2 -X POST 'http://127.0.0.1:` + port +
 			`/api/notify?key=` + mgr.NotifySecret() + `&session=#{session_name}'"`
 
 		mgr.Register(s.mux)

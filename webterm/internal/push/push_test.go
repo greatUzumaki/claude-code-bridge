@@ -18,7 +18,7 @@ import (
 func newManager(t *testing.T) *Manager {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), ".webterm")
-	m, err := New(dir)
+	m, err := New(dir, "")
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -45,7 +45,7 @@ func readSubs(t *testing.T, dir string) []webpush.Subscription {
 
 func TestNewCreatesConfigFile(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), ".webterm")
-	m, err := New(dir)
+	m, err := New(dir, "")
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -78,12 +78,12 @@ func TestNewCreatesConfigFile(t *testing.T) {
 func TestNewReusesExistingKeys(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), ".webterm")
 
-	m1, err := New(dir)
+	m1, err := New(dir, "")
 	if err != nil {
 		t.Fatalf("first New: %v", err)
 	}
 
-	m2, err := New(dir)
+	m2, err := New(dir, "")
 	if err != nil {
 		t.Fatalf("second New: %v", err)
 	}

@@ -24,13 +24,14 @@ func main() {
 	token          := flag.String("token", os.Getenv("WEBTERM_TOKEN"), "auth token; empty disables auth")
 	origins        := flag.String("allowed-origins", "", "comma-separated WS Origin host patterns; empty = strict same-origin. Set to your domain behind a TLS proxy.")
 	silenceSecs    := flag.Int("silence-seconds", 20, "seconds of terminal inactivity before a silence notification fires (tmux monitor-silence)")
+	pushSubscriber := flag.String("push-subscriber", "", "VAPID contact for Web Push (bare email or https URL); some push services require a valid one")
 	flag.Parse()
 
 	if !terminal.Available() {
 		log.Println("WARNING: tmux not found on PATH — terminals will not work. Install tmux (apt/brew install tmux).")
 	}
 
-	s := server.New(server.Config{Addr: *addr, Root: *root, Token: *token, AllowedOrigins: splitComma(*origins), SilenceSeconds: *silenceSecs})
+	s := server.New(server.Config{Addr: *addr, Root: *root, Token: *token, AllowedOrigins: splitComma(*origins), SilenceSeconds: *silenceSecs, PushSubscriber: *pushSubscriber})
 	log.Printf("WebTerm listening on http://%s (root=%s, auth=%v)", *addr, *root, *token != "")
 	if err := http.ListenAndServe(*addr, s.Handler()); err != nil {
 		log.Fatal(err)

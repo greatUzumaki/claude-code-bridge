@@ -33,6 +33,7 @@ var publicAssets = map[string]bool{
 	"/apple-touch-icon.png":       true,
 	"/android-chrome-192x192.png": true,
 	"/android-chrome-512x512.png": true,
+	"/notification-badge.png":     true, // push notification badge — OS fetches it anonymously
 	"/manifest.webmanifest":       true,
 	"/robots.txt":                 true,
 }
@@ -43,7 +44,12 @@ func authSeam(token string, next http.Handler) http.Handler {
 		want = sha256.Sum256([]byte(token))
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token != "" && !publicAssets[r.URL.Path] {
+		// /api/notify is triggered by a LOCAL tmux silence/bell hook (a curl to
+		// 127.0.0.1) that cannot carry the main token, so it bypasses this gate and
+		// authenticates itself with a separate constant-time notify secret in the
+		// handler. Gating it here just 401s the hook (the body "unauthorized" then
+		// gets printed into the terminal by tmux run-shell after each idle period).
+		if token != "" && !publicAssets[r.URL.Path] && r.URL.Path != "/api/notify" {
 			presented := ""
 			if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 				presented = strings.TrimPrefix(h, "Bearer ")

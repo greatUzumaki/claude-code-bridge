@@ -38,6 +38,19 @@ func TestAuthSeamBlocksWithoutToken(t *testing.T) {
 	}
 }
 
+func TestNotifyBypassesAuthSeam(t *testing.T) {
+	// /api/notify is self-authed by the notify secret (local tmux hook can't carry the
+	// main token), so the gate must let it reach the handler — never a 401. A wrong/no
+	// key then yields 403/404, not 401.
+	s := New(Config{Root: t.TempDir(), Token: "secret"})
+	req := httptest.NewRequest(http.MethodPost, "/api/notify?key=wrong", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Fatalf("/api/notify must bypass the auth seam, got 401")
+	}
+}
+
 func TestPublicAssetsBypassAuth(t *testing.T) {
 	// PWA install assets must be reachable WITHOUT a credential even when auth is on,
 	// or iOS/Android can't fetch the icon+manifest at "Add to Home Screen" time.
