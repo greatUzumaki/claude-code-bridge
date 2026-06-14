@@ -154,11 +154,14 @@ export function useTerminal(projectId: string, n: number | undefined, el: HTMLDi
     };
   }, [projectId, n, el, paneId]);
 
-  // Inject raw bytes to the PTY, then refocus the terminal so typing continues.
+  // Inject raw bytes to the PTY. On a fine pointer (desktop) refocus so physical typing
+  // continues; on touch we must NOT refocus — focusing xterm's hidden <textarea> pops the
+  // phone's native soft keyboard, which is unwanted when the user taps the on-screen key bar.
   const send = useCallback((data: string) => {
     const ws = wsRef.current;
     if (ws?.readyState === 1) ws.send(new TextEncoder().encode(data));
-    termRef.current?.focus();
+    const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+    if (!coarse) termRef.current?.focus();
   }, []);
 
   // Adjust font size by delta, clamp, persist, refit, and send resize.
