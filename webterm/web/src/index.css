@@ -26,6 +26,9 @@ body,
     -apple-system,
     sans-serif;
   overflow: hidden;
+  /* Block double-tap / pinch zoom on touch while keeping scroll+pan (xterm needs pan). */
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
 }
 * {
   box-sizing: border-box;

@@ -9,6 +9,12 @@ import { registerServiceWorker } from "./lib/swManager.ts";
 
 registerServiceWorker();
 
+// iOS Safari (browser tab) ignores `user-scalable=no` and still allows pinch zoom via its
+// proprietary gesture events. Block them so zoom is off everywhere — meta covers Android + PWA.
+for (const ev of ["gesturestart", "gesturechange", "gestureend"]) {
+  document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

@@ -26,7 +26,8 @@ export default defineConfig({
         description: "Self-hosted terminal + project file browser",
         theme_color: "#0d0f12",
         background_color: "#0d0f12",
-        display: "standalone",
+        display: "fullscreen",
+        display_override: ["fullscreen", "standalone", "minimal-ui"],
         orientation: "any",
         start_url: "/",
         icons: [
